@@ -90,7 +90,7 @@ export default function LeafletMap({latitude, longitude, onSelect}: LeafletMapPr
     <MapContainer
       center={center}
       zoom={zoom}
-      className="h-64 w-full rounded-lg shadow-inner"
+      className="h-48 w-full rounded-lg shadow-inner"
       scrollWheelZoom
     >
       <TileLayer

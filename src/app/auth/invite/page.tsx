@@ -32,10 +32,11 @@ export default function InvitationPage() {
 
       try {
         const response = await apiService.getInvitation(token);
-        if (response.success) {
-          setDetails(response.invitation as InvitationDetails);
+        const r = response as Record<string, unknown>;
+        if (r.success === true) {
+          setDetails(r.invitation as InvitationDetails);
         } else {
-          setError(response.message || 'Undangan tidak ditemukan.');
+          setError(String((r as Record<string, unknown>).message ?? 'Undangan tidak ditemukan.'));
         }
       } catch (err) {
         setError(getErrorMessage(err, 'Gagal memuat data undangan.')); 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Store, StoreInput } from '@/app/services/api';
 import { getErrorMessage } from '@/app/utils/error';
 import StoreLocationPicker from './StoreLocationPicker';
+import { Button } from '@/components/ui/button';
 
 interface StoreFormProps {
   tenantName?: string;
@@ -26,11 +27,12 @@ export default function StoreForm({
 }: StoreFormProps) {
   const [name, setName] = useState('');
   const [nickname, setNickname] = useState('');
-  const [contactNumber, setContactNumber] = useState('');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [radius, setRadius] = useState('');
   const [coordinateInput, setCoordinateInput] = useState('');
+  const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
   const COORD_DECIMALS = 7;
@@ -111,7 +113,6 @@ export default function StoreForm({
     if (store) {
       setName(store.name || '');
       setNickname(store.nickname ?? '');
-      setContactNumber(store.no_telp ?? '');
       setEmail(store.email ?? '');
       setStatus(store.status === 'inactive' ? 'inactive' : 'active');
       setRadius(
@@ -120,14 +121,17 @@ export default function StoreForm({
           : '',
       );
       setCoordinateInput(formatCoordinatePair(store.latitude, store.longitude));
+      setAddress(store.address ?? '');
+      setPhone(store.phone ?? '');
     } else {
       setName('');
       setNickname('');
-      setContactNumber('');
       setEmail('');
       setStatus('active');
       setRadius('');
       setCoordinateInput('');
+      setAddress('');
+      setPhone('');
     }
     setLocalError(null);
   }, [store, isOpen]);
@@ -187,12 +191,13 @@ export default function StoreForm({
     const payload: StoreInput = {
       name: name.trim(),
       nickname: nickname.trim() ? nickname.trim() : null,
-      no_telp: contactNumber.trim() ? contactNumber.trim() : null,
       email: trimmedEmail || null,
       status,
       radius: radiusValue,
       latitude: latitudeValue,
       longitude: longitudeValue,
+      address: address.trim() || null,
+      phone: phone.trim() || null,
     };
 
     try {
@@ -211,8 +216,8 @@ export default function StoreForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50 px-4">
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b px-6 py-4">
+      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between border-b px-6 py-4 flex-shrink-0">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
               {store ? 'Edit Store' : 'Create Store'}
@@ -237,53 +242,39 @@ export default function StoreForm({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {(localError || error) && (
-            <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
-              {localError || error}
-            </div>
-          )}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+            {(localError || error) && (
+              <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
+                {localError || error}
+              </div>
+            )}
 
-          <div>
-            <label htmlFor="store-name" className="block text-sm font-medium text-gray-700">
-              Store Name
-            </label>
-            <input
-              id="store-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              placeholder="Enter store name"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="store-nickname" className="block text-sm font-medium text-gray-700">
-              Nickname (optional)
-            </label>
-            <input
-              id="store-nickname"
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              placeholder="Enter short reference name"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="store-contact" className="block text-sm font-medium text-gray-700">
-                Contact Number (optional)
+              <label htmlFor="store-name" className="block text-sm font-medium text-gray-700">
+                Store Name
               </label>
               <input
-                id="store-contact"
+                id="store-name"
                 type="text"
-                value={contactNumber}
-                onChange={(e) => setContactNumber(e.target.value)}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                placeholder="Enter contact number"
+                placeholder="Enter store name"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="store-nickname" className="block text-sm font-medium text-gray-700">
+                Nickname (optional)
+              </label>
+              <input
+                id="store-nickname"
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                placeholder="Enter short reference name"
               />
             </div>
 
@@ -300,108 +291,136 @@ export default function StoreForm({
                 placeholder="Enter contact email"
               />
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="store-status" className="block text-sm font-medium text-gray-700">
-                Status
-              </label>
-              <select
-                id="store-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as 'active' | 'inactive')}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="store-status" className="block text-sm font-medium text-gray-700">
+                  Status
+                </label>
+                <select
+                  id="store-status"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as 'active' | 'inactive')}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="store-radius" className="block text-sm font-medium text-gray-700">
+                  Radius (meters)
+                </label>
+                <input
+                  id="store-radius"
+                  type="number"
+                  min={0}
+                  value={radius}
+                  onChange={(e) => setRadius(e.target.value)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Default 100"
+                />
+              </div>
             </div>
 
             <div>
-              <label htmlFor="store-radius" className="block text-sm font-medium text-gray-700">
-                Radius (meters)
+              <label htmlFor="store-coordinates" className="block text-sm font-medium text-gray-700">
+                Coordinates (optional)
               </label>
               <input
-                id="store-radius"
-                type="number"
-                min={0}
-                value={radius}
-                onChange={(e) => setRadius(e.target.value)}
+                id="store-coordinates"
+                type="text"
+                value={coordinateInput}
+                onChange={(e) => setCoordinateInput(e.target.value)}
+                onBlur={(e) => {
+                  const parsed = parseCoordinatePair(e.target.value);
+                  if (parsed) {
+                    setCoordinateInput(formatCoordinatePair(parsed.latitude, parsed.longitude));
+                  }
+                }}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                placeholder="Default 100"
+                placeholder="Paste coordinates like '-6.1895717, 106.7931118'"
+                inputMode="decimal"
+                autoComplete="off"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Accepts latitude and longitude separated by a comma or space. Example: <code>-6.1895717, 106.7931118</code>.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Select on map (optional)</label>
+              <p className="mt-1 text-xs text-gray-500">
+                Click on the map or drag the marker to populate latitude and longitude. Data comes from OpenStreetMap tiles.
+              </p>
+              <div className="mt-3 overflow-hidden rounded-lg border border-gray-200">
+                <StoreLocationPicker
+                  latitude={derivedLatitude}
+                  longitude={derivedLongitude}
+                  onChange={(lat, lng) => {
+                    setCoordinateInput(formatCoordinatePair(lat, lng));
+                  }}
+                />
+              </div>
+              {coordinateInput && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoordinateInput('');
+                  }}
+                  className="mt-3 inline-flex items-center rounded-md border border-transparent bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200"
+                >
+                  Clear coordinates
+                </button>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+                Address (optional)
+              </label>
+              <textarea
+                id="address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                rows={3}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                placeholder="Store address"
               />
             </div>
-          </div>
 
-          <div>
-            <label htmlFor="store-coordinates" className="block text-sm font-medium text-gray-700">
-              Coordinates (optional)
-            </label>
-            <input
-              id="store-coordinates"
-              type="text"
-              value={coordinateInput}
-              onChange={(e) => setCoordinateInput(e.target.value)}
-              onBlur={(e) => {
-                const parsed = parseCoordinatePair(e.target.value);
-                if (parsed) {
-                  setCoordinateInput(formatCoordinatePair(parsed.latitude, parsed.longitude));
-                }
-              }}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              placeholder="Paste coordinates like '-6.1895717, 106.7931118'"
-              inputMode="decimal"
-              autoComplete="off"
-            />
-            <p className="mt-1 text-xs text-gray-400">
-              Accepts latitude and longitude separated by a comma or space. Example: <code>-6.1895717, 106.7931118</code>.
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Select on map (optional)</label>
-            <p className="mt-1 text-xs text-gray-500">
-              Click on the map or drag the marker to populate latitude and longitude. Data comes from OpenStreetMap tiles.
-            </p>
-            <div className="mt-3 overflow-hidden rounded-lg border border-gray-200">
-              <StoreLocationPicker
-                latitude={derivedLatitude}
-                longitude={derivedLongitude}
-                onChange={(lat, lng) => {
-                  setCoordinateInput(formatCoordinatePair(lat, lng));
-                }}
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                Phone (optional)
+              </label>
+              <input
+                id="phone"
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                placeholder="Phone number"
               />
             </div>
-            {coordinateInput && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCoordinateInput('');
-                }}
-                className="mt-3 inline-flex items-center rounded-md border border-transparent bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200"
-              >
-                Clear coordinates
-              </button>
-            )}
+
           </div>
 
-          <div className="flex justify-end space-x-3 pt-2">
-            <button
+          <div className="flex justify-end space-x-3 px-6 py-4 border-t bg-gray-50 flex-shrink-0">
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               disabled={loading}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
               disabled={loading}
             >
               {loading ? 'Saving...' : store ? 'Update Store' : 'Create Store'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

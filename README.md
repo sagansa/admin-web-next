@@ -24,16 +24,19 @@ This is a Next.js admin panel that integrates with a Laravel backend using Spati
 ## Getting Started
 
 1. Install dependencies:
+
    ```bash
    npm install
    ```
 
 2. Create a `.env` file based on `.env.example` and configure your API base URL:
+
    ```env
-   NEXT_PUBLIC_API_BASE_URL=http://localhost:8001/api
+   NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
    ```
 
 3. Run the development server:
+
    ```bash
    npm run dev
    ```
@@ -80,6 +83,7 @@ src/
 ## Role-Based Access Control
 
 - **Admin users** can access:
+
   - Dashboard
   - User management
   - Presence management (future)
@@ -95,17 +99,20 @@ src/
 The frontend communicates with the Laravel backend through RESTful API endpoints:
 
 ### Authentication
+
 - `POST /api/auth/login` - User login
 - `POST /api/auth/logout` - User logout
 - `GET /api/auth/user` - Get authenticated user
 
 ### User Management
+
 - `GET /api/users` - Get all users
 - `GET /api/users/{id}` - Get specific user
 - `PUT /api/users/{id}` - Update user
 - `DELETE /api/users/{id}` - Delete user
 
 ### Role Management
+
 - `GET /api/roles` - Get all roles
 - `POST /api/roles` - Create role
 - `GET /api/roles/{id}` - Get specific role
@@ -113,6 +120,7 @@ The frontend communicates with the Laravel backend through RESTful API endpoints
 - `DELETE /api/roles/{id}` - Delete role
 
 ### Permission Management
+
 - `GET /api/permissions` - Get all permissions
 - `POST /api/permissions` - Create permission
 - `GET /api/permissions/{id}` - Get specific permission

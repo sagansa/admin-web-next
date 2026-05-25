@@ -36,10 +36,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.getTenantStores(tenantId);
-      if (response.success && Array.isArray(response.stores)) {
-        setStores(response.stores as Store[]);
+      const r = response as Record<string, unknown>;
+      if (r.success === true && Array.isArray(r.stores)) {
+        setStores(r.stores as Store[]);
       } else {
-        setError(response.message || 'Failed to fetch stores');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to fetch stores'));
         setStores([]);
       }
     } catch (error) {
@@ -57,12 +58,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       try {
         const response = await apiService.createStore(tenantId, storeData);
-        if (response.success) {
+        const r = response as Record<string, unknown>;
+        if (r.success === true) {
           await fetchStores(tenantId);
-          return response.store as Store;
+          return r.store as Store;
         }
 
-        setError(response.message || 'Failed to create store');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to create store'));
         return null;
       } catch (error) {
         setError(getErrorMessage(error));
@@ -81,12 +83,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       try {
         const response = await apiService.updateStore(tenantId, storeId, storeData);
-        if (response.success) {
+        const r = response as Record<string, unknown>;
+        if (r.success === true) {
           await fetchStores(tenantId);
-          return response.store as Store;
+          return r.store as Store;
         }
 
-        setError(response.message || 'Failed to update store');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to update store'));
         return null;
       } catch (error) {
         setError(getErrorMessage(error));
@@ -105,12 +108,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       try {
         const response = await apiService.deleteStore(tenantId, storeId);
-        if (response.success) {
+        const r = response as Record<string, unknown>;
+        if (r.success === true) {
           await fetchStores(tenantId);
           return true;
         }
 
-        setError(response.message || 'Failed to delete store');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to delete store'));
         return false;
       } catch (error) {
         setError(getErrorMessage(error));

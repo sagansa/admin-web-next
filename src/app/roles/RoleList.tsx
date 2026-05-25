@@ -2,13 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRoleContext } from '@/app/contexts/RoleContext';
+import { useAuth } from '@/app/contexts/AuthContext';
 import RoleForm from './RoleForm';
 import { Role } from '@/app/services/api';
+import { Button, ConfirmationDialog, Input } from '@/components/ui';
+import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 
 export default function RoleList() {
-  const { roles, loading, error, fetchRoles } = useRoleContext();
+  const { roles, loading, error, fetchRoles, deleteRole } = useRoleContext();
+  const { isSuperAdmin } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -28,6 +33,17 @@ export default function RoleList() {
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingRole(null);
+  };
+
+  const handleDelete = (role: Role) => {
+    setRoleToDelete(role);
+  };
+
+  const confirmDelete = async () => {
+    if (!roleToDelete) return;
+
+    await deleteRole(roleToDelete.id);
+    setRoleToDelete(null);
   };
 
   const filteredRoles = useMemo(() => {
@@ -58,31 +74,32 @@ export default function RoleList() {
 
   return (
     <div>
-      <div className="pb-5 border-b border-gray-200 flex justify-between items-center">
-        <h3 className="text-lg leading-6 font-medium text-gray-900">Roles</h3>
-        <button
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-3xl font-bold text-gray-900">Roles</h3>
+          <p className="mt-1 text-sm text-gray-700">
+            Define roles and assign permissions to control access across your organization.
+          </p>
+        </div>
+        <Button
           onClick={handleCreate}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
-          Add Role
-        </button>
+          <Plus className="h-4 w-4 mr-1" />
+          Role
+        </Button>
       </div>
 
       <div className="mt-4">
         <div className="flex justify-between">
-          <div className="relative rounded-md shadow-sm w-64">
-            <input
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
               type="text"
-              className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pr-10 py-2 sm:text-sm border-gray-300 rounded-md"
+              className="pl-10"
               placeholder="Search roles..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-              </svg>
-            </div>
           </div>
         </div>
       </div>
@@ -97,6 +114,11 @@ export default function RoleList() {
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Name
                     </th>
+                    {isSuperAdmin && (
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tenant
+                      </th>
+                    )}
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Permissions Count
                     </th>
@@ -109,30 +131,63 @@ export default function RoleList() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredRoles.map((role) => (
-                    <tr key={role.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{role.name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{Array.isArray(role.permissions) ? role.permissions.length : 0}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(role.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(role)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-4"
-                        >
-                          Edit
-                        </button>
-                        <button className="text-red-600 hover:text-red-900">
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredRoles.map((role) => {
+                    const isSystemRole = ['super-admin', 'owner'].includes(role.name);
+
+                    return (
+                      <tr key={role.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-medium text-gray-900">{role.name}</div>
+                            {isSystemRole && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                System
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        {isSuperAdmin && (
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {role.tenant?.name || '-'}
+                            </div>
+                          </td>
+                        )}
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">
+                            {Array.isArray(role.permissions)
+                              ? role.permissions.map(p => p.name).join(', ')
+                              : 'No permissions'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(role.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
+                            <Button
+                              // variant="info"
+                              size="icon-sm"
+                              onClick={() => handleEdit(role)}
+                              disabled={isSystemRole}
+                              title={isSystemRole ? 'System roles cannot be edited' : 'Edit role'}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon-sm"
+                              onClick={() => handleDelete(role)}
+                              disabled={isSystemRole}
+                              title={isSystemRole ? 'System roles cannot be deleted' : 'Delete role'}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -143,13 +198,25 @@ export default function RoleList() {
       {showForm && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-            <RoleForm 
-              role={editingRole} 
-              onClose={handleCloseForm} 
+            <RoleForm
+              role={editingRole}
+              onClose={handleCloseForm}
             />
           </div>
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={!!roleToDelete}
+        onClose={() => setRoleToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Konfirmasi Hapus Role"
+        message={`Apakah Anda yakin ingin menghapus role "${roleToDelete?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus"
+        cancelText="Batal"
+        variant="danger"
+        loading={loading}
+      />
     </div>
   );
 }

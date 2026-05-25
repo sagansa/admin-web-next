@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
-import apiService, { Role } from '@/app/services/api';
+import apiService, { Role, RoleCreateInput } from '@/app/services/api';
 import { getErrorMessage } from '@/app/utils/error';
 
 interface RoleContextType {
@@ -9,9 +9,10 @@ interface RoleContextType {
   loading: boolean;
   error: string | null;
   fetchRoles: () => Promise<void>;
-  createRole: (roleData: Partial<Role>) => Promise<Role | null>;
+  createRole: (roleData: RoleCreateInput) => Promise<Role | null>;
   updateRole: (id: string, roleData: Partial<Role>) => Promise<Role | null>;
   deleteRole: (id: string) => Promise<boolean>;
+  syncRolePermissions: (roleId: string, permissions: string[]) => Promise<boolean>;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
@@ -27,13 +28,14 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.getRoles();
-      if (response.success && Array.isArray(response.roles)) {
-        setRoles(response.roles.map((role: Role) => ({
+      const r = response as Record<string, unknown>;
+      if (r.success === true && Array.isArray(r.roles)) {
+        setRoles((r.roles as Role[]).map((role) => ({
           ...role,
           permissions: Array.isArray(role.permissions) ? role.permissions : [],
         })));
       } else {
-        setError(response.message || 'Failed to fetch roles');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to fetch roles'));
       }
     } catch (error) {
       setError(getErrorMessage(error, 'An error occurred while fetching roles'));
@@ -42,17 +44,18 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const createRole = useCallback(async (roleData: Partial<Role>): Promise<Role | null> => {
+  const createRole = useCallback(async (roleData: RoleCreateInput): Promise<Role | null> => {
     setLoading(true);
     setError(null);
 
     try {
       const response = await apiService.createRole(roleData);
-      if (response.success) {
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
         await fetchRoles();
-        return response.role;
+        return r.role as Role;
       } else {
-        setError(response.message || 'Failed to create role');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to create role'));
         return null;
       }
     } catch (error) {
@@ -69,11 +72,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.updateRole(id, roleData);
-      if (response.success) {
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
         await fetchRoles();
-        return response.role;
+        return r.role as Role;
       } else {
-        setError(response.message || 'Failed to update role');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to update role'));
         return null;
       }
     } catch (error) {
@@ -90,15 +94,32 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.deleteRole(id);
-      if (response.success) {
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
         await fetchRoles();
         return true;
       } else {
-        setError(response.message || 'Failed to delete role');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to delete role'));
         return false;
       }
     } catch (error) {
       setError(getErrorMessage(error, 'An error occurred while deleting role'));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchRoles]);
+
+  const syncRolePermissions = useCallback(async (roleId: string, permissions: string[]): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await apiService.syncRolePermissions(roleId, permissions);
+      await fetchRoles();
+      return true;
+    } catch (error) {
+      setError(getErrorMessage(error, 'An error occurred while syncing role permissions'));
       return false;
     } finally {
       setLoading(false);
@@ -115,6 +136,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         createRole,
         updateRole,
         deleteRole,
+        syncRolePermissions,
       }}
     >
       {children}

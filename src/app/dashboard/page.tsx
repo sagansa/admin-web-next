@@ -1,7 +1,7 @@
 'use client';
 
-import ProtectedRoute from '@/app/components/ProtectedRoute';
-import AdminLayout from '@/app/components/AdminLayout';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import AdminLayout from '@/components/AdminLayout';
 
 export default function DashboardPage() {
   return (

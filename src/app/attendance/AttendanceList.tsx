@@ -1,14 +1,14 @@
 'use client';
 
 import { Attendance, AttendanceStatus } from '../services/api';
+import { MapPin } from 'lucide-react';
 
 interface AttendanceListProps {
   attendances: Attendance[];
   onStatusUpdate: (attendanceId: string, status: AttendanceStatus) => void;
-  onEdit?: (attendance: Attendance) => void;
 }
 
-export default function AttendanceList({ attendances, onStatusUpdate, onEdit }: AttendanceListProps) {
+export default function AttendanceList({ attendances, onStatusUpdate }: AttendanceListProps) {
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleString('en-US', {
@@ -59,14 +59,6 @@ export default function AttendanceList({ attendances, onStatusUpdate, onEdit }: 
   const getRowActions = (attendance: Attendance) => {
     return (
       <div className="flex space-x-2">
-        {onEdit && (
-          <button
-            onClick={() => onEdit(attendance)}
-            className="px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors"
-          >
-            Edit
-          </button>
-        )}
         {getStatusActions(attendance)}
       </div>
     );
@@ -165,7 +157,9 @@ export default function AttendanceList({ attendances, onStatusUpdate, onEdit }: 
                 </div>
                 {attendance.latitude_in && attendance.longitude_in && (
                   <div className="text-xs text-gray-500">
-                    📍 {attendance.latitude_in.toFixed(4)}, {attendance.longitude_in.toFixed(4)}
+                    <span title={`${attendance.latitude_in.toFixed(4)}, ${attendance.longitude_in.toFixed(4)}`}>
+                      <MapPin className="h-4 w-4" />
+                    </span>
                   </div>
                 )}
               </td>
@@ -175,7 +169,9 @@ export default function AttendanceList({ attendances, onStatusUpdate, onEdit }: 
                 </div>
                 {attendance.latitude_out && attendance.longitude_out && (
                   <div className="text-xs text-gray-500">
-                    📍 {attendance.latitude_out.toFixed(4)}, {attendance.longitude_out.toFixed(4)}
+                    <span title={`${attendance.latitude_out.toFixed(4)}, ${attendance.longitude_out.toFixed(4)}`}>
+                      <MapPin className="h-4 w-4" />
+                    </span>
                   </div>
                 )}
               </td>

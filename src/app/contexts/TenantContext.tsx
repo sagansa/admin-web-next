@@ -29,10 +29,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.getTenants();
-      if (response.success && Array.isArray(response.tenants)) {
-        setTenants(response.tenants as Tenant[]);
+      const r = response as Record<string, unknown>;
+      if (r.success === true && Array.isArray(r.tenants)) {
+        setTenants(r.tenants as Tenant[]);
       } else {
-        setError(response.message || 'Failed to fetch tenants');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to fetch tenants'));
       }
     } catch (error) {
       setError(getErrorMessage(error));
@@ -47,11 +48,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.createTenant(tenantData);
-      if (response.success) {
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
         await fetchTenants();
-        return response.tenant as Tenant;
+        return r.tenant as Tenant;
       } else {
-        setError(response.message || 'Failed to create tenant');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to create tenant'));
         return null;
       }
     } catch (error) {
@@ -68,11 +70,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.updateTenant(id, tenantData);
-      if (response.success) {
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
         await fetchTenants();
-        return response.tenant as Tenant;
+        return r.tenant as Tenant;
       } else {
-        setError(response.message || 'Failed to update tenant');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to update tenant'));
         return null;
       }
     } catch (error) {
@@ -89,11 +92,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.deleteTenant(id);
-      if (response.success) {
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
         await fetchTenants();
         return true;
       } else {
-        setError(response.message || 'Failed to delete tenant');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to delete tenant'));
         return false;
       }
     } catch (error) {

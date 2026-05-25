@@ -1,13 +1,13 @@
 'use client';
 
-import ProtectedRoute from '@/app/components/ProtectedRoute';
-import AdminLayout from '@/app/components/AdminLayout';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import AdminLayout from '@/components/AdminLayout';
 import RoleList from './RoleList';
 import { RoleProvider } from '@/app/contexts/RoleContext';
 
 export default function RolesPage() {
   return (
-    <ProtectedRoute requiredRole="super-admin">
+    <ProtectedRoute requiredRole="admin">
       <RoleProvider>
         <AdminLayout>
           <RoleList />

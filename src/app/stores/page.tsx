@@ -1,14 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import AdminLayout from '@/app/components/AdminLayout';
-import ProtectedRoute from '@/app/components/ProtectedRoute';
+import { useRouter } from 'next/navigation';
+import AdminLayout from '@/components/AdminLayout';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { Store, StoreInput, Tenant } from '@/app/services/api';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { TenantProvider, useTenantContext } from '@/app/contexts/TenantContext';
 import { StoreProvider, useStoreContext } from '@/app/contexts/StoreContext';
 import StoreForm from './StoreForm';
 import { getErrorMessage } from '@/app/utils/error';
+import { Button, ConfirmationDialog, Input, Select } from '@/components/ui';
+import { Plus, Pencil, Trash2, CreditCard, Search } from 'lucide-react';
 
 function StoresContent() {
   const { isSuperAdmin, user: currentUser } = useAuth();
@@ -23,10 +26,14 @@ function StoresContent() {
     error,
   } = useStoreContext();
 
+  const router = useRouter();
+
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [activeStore, setActiveStore] = useState<Store | undefined>(undefined);
   const [formError, setFormError] = useState<string | null>(null);
+  const [storeToDelete, setStoreToDelete] = useState<Store | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -105,18 +112,34 @@ function StoresContent() {
     }
   };
 
-  const handleDelete = async (store: Store) => {
+  const handleDelete = (store: Store) => {
     if (!activeTenantId) {
       return;
     }
 
-    const confirmed = window.confirm(`Delete store "${store.name}"? This action cannot be undone.`);
-    if (!confirmed) {
+    setStoreToDelete(store);
+  };
+
+  const confirmDelete = async () => {
+    if (!activeTenantId || !storeToDelete) {
       return;
     }
 
-    await deleteStore(activeTenantId, store.id);
+    await deleteStore(activeTenantId, storeToDelete.id);
+    setStoreToDelete(null);
   };
+
+  const filteredStores = useMemo(() => {
+    const matcher = searchTerm.trim().toLowerCase();
+    if (!matcher) {
+      return stores;
+    }
+    return stores.filter((store) =>
+      store.name.toLowerCase().includes(matcher) ||
+      (store.nickname?.toLowerCase() || '').includes(matcher) ||
+      (store.email?.toLowerCase() || '').includes(matcher)
+    );
+  }, [stores, searchTerm]);
 
   return (
     <AdminLayout>
@@ -128,13 +151,14 @@ function StoresContent() {
           </p>
         </div>
         {activeTenantId && (
-          <button
-            type="button"
+          <Button
             onClick={openCreateModal}
-            className="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            aria-label="Add Store"
+            title="Add Store"
           >
-            New Store
-          </button>
+            <Plus className="h-4 w-4 mr-1" />
+            Store
+          </Button>
         )}
       </div>
 
@@ -164,6 +188,20 @@ function StoresContent() {
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {/* Search */}
+        {activeTenantId && (
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search stores..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
         )}
 
@@ -203,14 +241,14 @@ function StoresContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {storeLoading && stores.length === 0 ? (
+                {storeLoading && filteredStores.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-8 text-center text-sm text-gray-500">
                       <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-transparent" />
                     </td>
                   </tr>
-                ) : stores.length > 0 ? (
-                  stores.map((store) => (
+                ) : filteredStores.length > 0 ? (
+                  filteredStores.map((store) => (
                     <tr key={store.id}>
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{store.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">
@@ -234,11 +272,20 @@ function StoresContent() {
                           : <span className="text-xs text-gray-400">Not specified</span>}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {store.latitude !== null || store.longitude !== null ? (
-                          <span>
-                            {store.latitude !== null ? store.latitude.toFixed(6) : '—'},{' '}
-                            {store.longitude !== null ? store.longitude.toFixed(6) : '—'}
-                          </span>
+                        {store.latitude !== null && store.longitude !== null ? (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${store.latitude},${store.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                            title="Open in Google Maps"
+                            aria-label={`Open ${store.latitude}, ${store.longitude} in Google Maps`}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 21s-6-4.35-6-10a6 6 0 1112 0c0 5.65-6 10-6 10z" />
+                              <circle cx="12" cy="11" r="2" />
+                            </svg>
+                          </a>
                         ) : (
                           <span className="text-xs text-gray-400">Not specified</span>
                         )}
@@ -246,21 +293,36 @@ function StoresContent() {
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {store.created_at ? new Date(store.created_at).toLocaleDateString() : '—'}
                       </td>
-                      <td className="px-6 py-4 text-right text-sm font-medium space-x-4">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(store)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(store)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          Delete
-                        </button>
+                      <td className="px-6 py-4 text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                          <Button
+                            variant="secondary"
+                            size="icon-sm"
+                            onClick={() => router.push(`/stores/${store.id}/payment-methods`)}
+                            aria-label="Payment Methods"
+                            title="Payment Methods"
+                          >
+                            <CreditCard className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            // variant="info"
+                            size="icon-sm"
+                            onClick={() => openEditModal(store)}
+                            aria-label="Edit Store"
+                            title="Edit Store"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="icon-sm"
+                            onClick={() => handleDelete(store)}
+                            aria-label="Delete Store"
+                            title="Delete Store"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -290,9 +352,22 @@ function StoresContent() {
         onSubmit={handleSubmit}
         error={formError}
       />
-    </AdminLayout>
+
+      <ConfirmationDialog
+        isOpen={!!storeToDelete}
+        onClose={() => setStoreToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Konfirmasi Hapus Store"
+        message={`Apakah Anda yakin ingin menghapus store "${storeToDelete?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus"
+        cancelText="Batal"
+        variant="danger"
+        loading={storeLoading}
+      />
+    </AdminLayout >
   );
 }
+
 
 export default function StoresPage() {
   return (

@@ -11,7 +11,7 @@ export default function ProtectedRoute({
   children: React.ReactNode;
   requiredRole?: 'admin' | 'super-admin';
 }) {
-  const { isAuthenticated, loading, isAdmin, isSuperAdmin } = useAuth();
+  const { user, isAuthenticated, loading, isAdmin, isSuperAdmin } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -39,6 +39,13 @@ export default function ProtectedRoute({
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
           <p className="mt-2 text-gray-600">You do not have permission to access this page.</p>
+          <div className="mt-4 p-4 bg-gray-100 rounded text-left text-xs font-mono">
+            <p>Debug Info:</p>
+            <p>Required Role: {requiredRole}</p>
+            <p>Current Roles: {user?.roles?.map(r => r.name).join(', ') || 'None'}</p>
+            <p>Is Admin: {isAdmin ? 'Yes' : 'No'}</p>
+            <p>Is Super Admin: {isSuperAdmin ? 'Yes' : 'No'}</p>
+          </div>
         </div>
       </div>
     );
@@ -50,6 +57,13 @@ export default function ProtectedRoute({
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
           <p className="mt-2 text-gray-600">You do not have permission to access this page.</p>
+          <div className="mt-4 p-4 bg-gray-100 rounded text-left text-xs font-mono">
+            <p>Debug Info:</p>
+            <p>Required Role: {requiredRole}</p>
+            <p>Current Roles: {user?.roles?.map(r => r.name).join(', ') || 'None'}</p>
+            <p>Is Admin: {isAdmin ? 'Yes' : 'No'}</p>
+            <p>Is Super Admin: {isSuperAdmin ? 'Yes' : 'No'}</p>
+          </div>
         </div>
       </div>
     );

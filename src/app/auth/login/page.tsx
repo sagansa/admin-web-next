@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const { login } = useAuth();
   const router = useRouter();
 
@@ -33,11 +33,14 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     setSuccess('');
-    
+
     try {
+      console.log('Attempting login with email:', email);
       await login(email, password);
+      console.log('Login successful, redirecting to dashboard...');
       router.push('/dashboard');
     } catch (error) {
+      console.error('Login failed:', error);
       setError(getErrorMessage(error, 'Login failed. Please check your credentials.'));
     } finally {
       setLoading(false);
@@ -112,11 +115,17 @@ export default function LoginPage() {
             </button>
           </div>
         </form>
-        
+
         <div className="text-sm text-center">
-          <Link href="/auth/register" className="font-medium text-indigo-600 hover:text-indigo-500">
-            Do not have an account? Register
-          </Link>
+          <div className="space-y-2">
+            <Link href="/auth/forgot-password" className="font-medium text-indigo-600 hover:text-indigo-500">
+              Lupa password?
+            </Link>
+            <br />
+            <Link href="/auth/register" className="font-medium text-indigo-600 hover:text-indigo-500">
+              Belum punya akun? Daftar
+            </Link>
+          </div>
         </div>
       </div>
     </div>

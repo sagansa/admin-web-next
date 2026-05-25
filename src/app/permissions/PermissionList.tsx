@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePermissionContext } from '@/app/contexts/PermissionContext';
 import PermissionForm from './PermissionForm';
 import { Permission } from '@/app/services/api';
+import { Button, ConfirmationDialog } from '@/components/ui';
 
 export default function PermissionList() {
-  const { permissions, loading, error, fetchPermissions } = usePermissionContext();
+  const { permissions, loading, error, fetchPermissions, deletePermission } = usePermissionContext();
   const [showForm, setShowForm] = useState(false);
   const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
+  const [permissionToDelete, setPermissionToDelete] = useState<Permission | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -28,6 +30,17 @@ export default function PermissionList() {
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingPermission(null);
+  };
+
+  const handleDelete = (permission: Permission) => {
+    setPermissionToDelete(permission);
+  };
+
+  const confirmDelete = async () => {
+    if (!permissionToDelete) return;
+
+    await deletePermission(permissionToDelete.id);
+    setPermissionToDelete(null);
   };
 
   const filteredPermissions = useMemo(() => {
@@ -111,8 +124,8 @@ export default function PermissionList() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredPermissions.map((permission) => (
-                    <tr key={permission.id}>
+                  {filteredPermissions.map((permission, index) => (
+                    <tr key={`${permission.id}-${permission.name}-${index}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{permission.name}</div>
                       </td>
@@ -123,15 +136,21 @@ export default function PermissionList() {
                         {new Date(permission.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleEdit(permission)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          className="mr-4"
                         >
                           Edit
-                        </button>
-                        <button className="text-red-600 hover:text-red-900">
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleDelete(permission)}
+                        >
                           Delete
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -145,13 +164,25 @@ export default function PermissionList() {
       {showForm && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-            <PermissionForm 
-              permission={editingPermission} 
-              onClose={handleCloseForm} 
+            <PermissionForm
+              permission={editingPermission}
+              onClose={handleCloseForm}
             />
           </div>
         </div>
       )}
+
+      <ConfirmationDialog
+        isOpen={!!permissionToDelete}
+        onClose={() => setPermissionToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Konfirmasi Hapus Permission"
+        message={`Apakah Anda yakin ingin menghapus permission "${permissionToDelete?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus"
+        cancelText="Batal"
+        variant="danger"
+        loading={loading}
+      />
     </div>
   );
 }

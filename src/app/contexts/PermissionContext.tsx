@@ -27,10 +27,41 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.getPermissions();
-      if (response.success && Array.isArray(response.permissions)) {
-        setPermissions(response.permissions as Permission[]);
+      const r = response as Record<string, unknown>;
+      if (r.success === true && Array.isArray(r.permissions)) {
+        // Check if permissions is already a flat array or grouped structure
+        const permissions = r.permissions as any[];
+
+        // If first element has 'name' property (not 'module'), it's already flat
+        if (permissions.length > 0 && 'name' in permissions[0]) {
+          // Flat array - use directly
+          setPermissions(permissions.map((perm: any) => ({
+            id: perm.id,
+            name: perm.name,
+            guard_name: perm.guard_name || 'api',
+            created_at: perm.created_at || new Date().toISOString(),
+            updated_at: perm.updated_at || new Date().toISOString(),
+          })));
+        } else {
+          // Grouped structure - flatten it
+          const flatPermissions: Permission[] = [];
+          permissions.forEach((module: any) => {
+            if (Array.isArray(module.permissions)) {
+              module.permissions.forEach((perm: any) => {
+                flatPermissions.push({
+                  id: perm.id,
+                  name: perm.name,
+                  guard_name: perm.guard_name || 'api',
+                  created_at: perm.created_at || new Date().toISOString(),
+                  updated_at: perm.updated_at || new Date().toISOString(),
+                });
+              });
+            }
+          });
+          setPermissions(flatPermissions);
+        }
       } else {
-        setError(response.message || 'Failed to fetch permissions');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to fetch permissions'));
       }
     } catch (caughtError) {
       setError(getErrorMessage(caughtError, 'An error occurred while fetching permissions'));
@@ -46,12 +77,13 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
 
       try {
         const response = await apiService.createPermission(permissionData);
-        if (response.success) {
+        const r = response as Record<string, unknown>;
+        if (r.success === true) {
           await fetchPermissions();
-          return (response.permission ?? null) as Permission | null;
+          return (r.permission ?? null) as Permission | null;
         }
 
-        setError(response.message || 'Failed to create permission');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to create permission'));
         return null;
       } catch (caughtError) {
         setError(getErrorMessage(caughtError, 'An error occurred while creating permission'));
@@ -70,12 +102,13 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
 
       try {
         const response = await apiService.updatePermission(id, permissionData);
-        if (response.success) {
+        const r = response as Record<string, unknown>;
+        if (r.success === true) {
           await fetchPermissions();
-          return (response.permission ?? null) as Permission | null;
+          return (r.permission ?? null) as Permission | null;
         }
 
-        setError(response.message || 'Failed to update permission');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to update permission'));
         return null;
       } catch (caughtError) {
         setError(getErrorMessage(caughtError, 'An error occurred while updating permission'));
@@ -94,12 +127,13 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
 
       try {
         const response = await apiService.deletePermission(id);
-        if (response.success) {
+        const r = response as Record<string, unknown>;
+        if (r.success === true) {
           await fetchPermissions();
           return true;
         }
 
-        setError(response.message || 'Failed to delete permission');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to delete permission'));
         return false;
       } catch (caughtError) {
         setError(getErrorMessage(caughtError, 'An error occurred while deleting permission'));

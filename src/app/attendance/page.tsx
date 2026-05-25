@@ -5,12 +5,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { TenantProvider, useTenantContext } from '../contexts/TenantContext';
 import { StoreProvider, useStoreContext } from '../contexts/StoreContext';
 import { ShiftStoreProvider, useShiftStoreContext } from '../contexts/ShiftStoreContext';
-import apiService, { Attendance, AttendanceStatus, AttendanceListParams, AttendanceCreateInput } from '../services/api';
+import apiService, { Attendance, AttendanceStatus, AttendanceListParams } from '../services/api';
 import AttendanceList from './AttendanceList';
 import AttendanceFilters from './AttendanceFilters';
-import AttendanceForm from './AttendanceForm';
-import ProtectedRoute from '../components/ProtectedRoute';
-import AdminLayout from '../components/AdminLayout';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import AdminLayout from '@/components/AdminLayout';
 
 function AttendanceContent() {
   const { user, isSuperAdmin } = useAuth();
@@ -23,10 +22,7 @@ function AttendanceContent() {
   const [filters, setFilters] = useState<AttendanceListParams>({
     per_page: 20,
   });
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [activeAttendance, setActiveAttendance] = useState<Attendance | undefined>(undefined);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formLoading, setFormLoading] = useState(false);
+  
 
   // Fetch tenants for super admin
   useEffect(() => {
@@ -47,13 +43,18 @@ function AttendanceContent() {
     try {
       setLoading(true);
       setError(null);
+      console.log('Fetching attendances with filters:', filters);
+      console.log('User authenticated:', !!user);
       const response = await apiService.getAttendances(filters);
-      
-      // Laravel resource collection response structure
-      if (response && response.data) {
-        setAttendances(Array.isArray(response.data) ? response.data : []);
+      console.log('Attendance API response:', response);
+      const r = response as Record<string, unknown>;
+      const data = (r as Record<string, unknown>).data;
+      console.log('Attendance data from response:', data);
+      if (Array.isArray(data)) {
+        setAttendances(data as Attendance[]);
+        console.log('Set attendances with', data.length, 'records');
       } else {
-        // No error if response is valid but empty
+        console.log('No array data found, setting empty attendances');
         setAttendances([]);
       }
     } catch (err) {
@@ -73,7 +74,8 @@ function AttendanceContent() {
   const handleStatusUpdate = async (attendanceId: string, status: AttendanceStatus) => {
     try {
       const response = await apiService.updateAttendanceStatus(attendanceId, status);
-      if (response.success) {
+      const r = response as Record<string, unknown>;
+      if ((r as Record<string, unknown>).success === true) {
         // Refresh the list
         await fetchAttendances();
       } else {
@@ -89,49 +91,7 @@ function AttendanceContent() {
     setFilters(newFilters);
   };
 
-  const openCreateModal = () => {
-    setActiveAttendance(undefined);
-    setFormError(null);
-    setIsFormOpen(true);
-  };
-
-  const openEditModal = (attendance: Attendance) => {
-    setActiveAttendance(attendance);
-    setFormError(null);
-    setIsFormOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsFormOpen(false);
-    setFormError(null);
-    setActiveAttendance(undefined);
-  };
-
-  const handleFormSubmit = async (data: AttendanceCreateInput) => {
-    setFormLoading(true);
-    setFormError(null);
-
-    try {
-      if (activeAttendance) {
-        // For editing, we would need an update endpoint
-        // For now, we'll show an error since the backend doesn't have update
-        throw new Error('Editing attendance is not supported yet');
-      } else {
-        const response = await apiService.createAttendance(data);
-        if (response.success) {
-          await fetchAttendances();
-          closeModal();
-        } else {
-          throw new Error(response.message || 'Failed to create attendance');
-        }
-      }
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'An error occurred');
-      throw err;
-    } finally {
-      setFormLoading(false);
-    }
-  };
+  
 
   if (!user) {
     return (
@@ -152,16 +112,7 @@ function AttendanceContent() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Attendance Management</h1>
             <p className="text-gray-600">View and manage employee attendance records</p>
           </div>
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Create Attendance
-          </button>
+          
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -194,20 +145,12 @@ function AttendanceContent() {
               <AttendanceList 
                 attendances={attendances}
                 onStatusUpdate={handleStatusUpdate}
-                onEdit={openEditModal}
               />
             )}
           </div>
         </div>
 
-        <AttendanceForm
-          attendance={activeAttendance}
-          isOpen={isFormOpen}
-          onClose={closeModal}
-          onSubmit={handleFormSubmit}
-          loading={formLoading}
-          error={formError}
-        />
+        
       </div>
     </AdminLayout>
   );

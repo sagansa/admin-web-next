@@ -14,6 +14,7 @@ import {
   UserUpdateInput,
 } from '@/app/services/api';
 import { getErrorMessage } from '@/app/utils/error';
+import { Button, Input, Select, Checkbox } from '@/components/ui/';
 
 interface UserFormProps {
   user: User | null;
@@ -66,7 +67,7 @@ export default function UserForm({ user, onClose }: UserFormProps) {
   const { createUser, updateUser } = useUserContext();
   const { roles, fetchRoles } = useRoleContext();
   const { tenants, fetchTenants } = useTenantContext();
-  const { isSuperAdmin, user: currentUser } = useAuth();
+  const { isAdmin, isSuperAdmin, user: currentUser } = useAuth();
   const isEditing = Boolean(user);
 
   const [formData, setFormData] = useState<FormState>(initialFormState);
@@ -103,7 +104,7 @@ export default function UserForm({ user, onClose }: UserFormProps) {
   }, [user, currentUser?.tenant?.id]);
 
   useEffect(() => {
-    if (!isSuperAdmin) {
+    if (!(isSuperAdmin || isAdmin)) {
       return;
     }
 
@@ -111,10 +112,10 @@ export default function UserForm({ user, onClose }: UserFormProps) {
       fetchRoles();
     }
 
-    if (availableTenants.length === 0) {
+    if (isSuperAdmin && availableTenants.length === 0) {
       fetchTenants();
     }
-  }, [fetchRoles, fetchTenants, isSuperAdmin, availableRoles.length, availableTenants.length]);
+  }, [fetchRoles, fetchTenants, isSuperAdmin, isAdmin, availableRoles.length, availableTenants.length]);
 
   const clearFieldError = (field: UserFormErrorKey) => {
     setErrors((prev) => {
@@ -222,9 +223,19 @@ export default function UserForm({ user, onClose }: UserFormProps) {
             updatePayload.password = formData.password;
             updatePayload.password_confirmation = formData.password_confirmation;
           }
-          updatePayload.roles = selectedRoleIds;
           updatePayload.tenant_id = selectedTenantId || undefined;
           updatePayload.membership_role = membershipRole;
+          const primaryRoleId = selectedRoleIds[0];
+          const primaryRole = availableRoles.find((r) => r.id === primaryRoleId);
+          if (primaryRole) {
+            (updatePayload as Record<string, unknown>).role = primaryRole.name;
+          }
+        } else if (isAdmin) {
+          const primaryRoleId = selectedRoleIds[0];
+          const primaryRole = availableRoles.find((r) => r.id === primaryRoleId);
+          if (primaryRole) {
+            (updatePayload as Record<string, unknown>).role = primaryRole.name;
+          }
         }
 
         await updateUser(user.id, updatePayload);
@@ -237,9 +248,20 @@ export default function UserForm({ user, onClose }: UserFormProps) {
           createPayload.name = formData.name;
           createPayload.password = formData.password;
           createPayload.password_confirmation = formData.password_confirmation;
-          createPayload.roles = selectedRoleIds;
           createPayload.tenant_id = selectedTenantId || undefined;
           createPayload.role = membershipRole;
+          const primaryRoleId = selectedRoleIds[0];
+          const primaryRole = availableRoles.find((r) => r.id === primaryRoleId);
+          if (primaryRole) {
+            (createPayload as Record<string, unknown>).role = primaryRole.name;
+          }
+        } else if (isAdmin) {
+          if (formData.name.trim()) {
+            createPayload.name = formData.name.trim();
+          }
+          const primaryRoleId = selectedRoleIds[0];
+          const primaryRole = availableRoles.find((r) => r.id === primaryRoleId);
+          createPayload.role = primaryRole ? primaryRole.name : 'member';
         } else {
           if (formData.name.trim()) {
             createPayload.name = formData.name.trim();
@@ -276,12 +298,12 @@ export default function UserForm({ user, onClose }: UserFormProps) {
     <div>
       <div className="flex items-center justify-between border-b pb-3">
         <h3 className="text-lg font-medium text-gray-900">{user ? 'Edit User' : 'Create User'}</h3>
-        <button type="button" onClick={onClose} className="text-gray-400 transition hover:text-gray-500">
+        <Button variant="ghost" size="icon" onClick={onClose}>
           <span className="sr-only">Close dialog</span>
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
-        </button>
+        </Button>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
@@ -294,13 +316,13 @@ export default function UserForm({ user, onClose }: UserFormProps) {
             <label htmlFor="name" className="block text-sm font-medium text-gray-700">
               Name
             </label>
-            <input
+            <Input
               id="name"
               name="name"
               type="text"
               value={formData.name}
               onChange={handleInputChange}
-              className={`mt-1 block w-full rounded-md border ${errors.name ? 'border-red-300' : 'border-gray-300'} px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500`}
+              className={errors.name ? 'border-red-300' : ''}
             />
             {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
           </div>
@@ -310,13 +332,13 @@ export default function UserForm({ user, onClose }: UserFormProps) {
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
             Email
           </label>
-          <input
+          <Input
             id="email"
             name="email"
             type="email"
             value={formData.email}
             onChange={handleInputChange}
-            className={`mt-1 block w-full rounded-md border ${errors.email ? 'border-red-300' : 'border-gray-300'} px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500`}
+            className={errors.email ? 'border-red-300' : ''}
           />
           {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
           {!isSuperAdmin && !isEditing && (
@@ -332,13 +354,13 @@ export default function UserForm({ user, onClose }: UserFormProps) {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 {user ? 'New Password (leave blank to keep current)' : 'Password'}
               </label>
-              <input
+              <Input
                 id="password"
                 name="password"
                 type="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className={`mt-1 block w-full rounded-md border ${errors.password ? 'border-red-300' : 'border-gray-300'} px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500`}
+                className={errors.password ? 'border-red-300' : ''}
               />
               {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
             </div>
@@ -347,13 +369,13 @@ export default function UserForm({ user, onClose }: UserFormProps) {
               <label htmlFor="password_confirmation" className="block text-sm font-medium text-gray-700">
                 Confirm Password
               </label>
-              <input
+              <Input
                 id="password_confirmation"
                 name="password_confirmation"
                 type="password"
                 value={formData.password_confirmation}
                 onChange={handleInputChange}
-                className={`mt-1 block w-full rounded-md border ${errors.password_confirmation ? 'border-red-300' : 'border-gray-300'} px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500`}
+                className={errors.password_confirmation ? 'border-red-300' : ''}
               />
               {errors.password_confirmation && (
                 <p className="mt-1 text-sm text-red-600">{errors.password_confirmation}</p>
@@ -368,12 +390,12 @@ export default function UserForm({ user, onClose }: UserFormProps) {
               <label htmlFor="tenant" className="block text-sm font-medium text-gray-700">
                 Tenant
               </label>
-              <select
+              <Select
                 id="tenant"
                 name="tenant"
                 value={selectedTenantId}
                 onChange={handleTenantChange}
-                className={`mt-1 block w-full rounded-md border ${errors.tenant_id ? 'border-red-300' : 'border-gray-300'} px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500`}
+                className={errors.tenant_id ? 'border-red-300' : ''}
               >
                 <option value="">Select tenant</option>
                 {availableTenants.map((tenant) => (
@@ -381,7 +403,7 @@ export default function UserForm({ user, onClose }: UserFormProps) {
                     {tenant.name}
                   </option>
                 ))}
-              </select>
+              </Select>
               {errors.tenant_id && <p className="mt-1 text-sm text-red-600">{errors.tenant_id}</p>}
             </div>
 
@@ -389,18 +411,18 @@ export default function UserForm({ user, onClose }: UserFormProps) {
               <label htmlFor="membership-role" className="block text-sm font-medium text-gray-700">
                 Tenant Membership Role
               </label>
-              <select
+              <Select
                 id="membership-role"
                 value={membershipRole}
                 onChange={handleMembershipRoleChange}
-                className={`mt-1 block w-full rounded-md border ${errors.role || errors.membership_role ? 'border-red-300' : 'border-gray-300'} px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500`}
+                className={errors.role || errors.membership_role ? 'border-red-300' : ''}
               >
                 {membershipOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </Select>
               {(errors.role || errors.membership_role) && (
                 <p className="mt-1 text-sm text-red-600">{errors.role ?? errors.membership_role}</p>
               )}
@@ -433,25 +455,40 @@ export default function UserForm({ user, onClose }: UserFormProps) {
           <div>
             <span className="block text-sm font-medium text-gray-700">Tenant</span>
             <p className="mt-1 text-sm text-gray-900">{currentUser?.tenant?.name ?? '—'}</p>
+            {isAdmin && (
+              <div className="mt-4">
+                <span className="block text-sm font-medium text-gray-700">Roles</span>
+                <div className="mt-2 space-y-2">
+                  {availableRoles.length === 0 ? (
+                    <p className="text-sm text-gray-500">No roles available.</p>
+                  ) : (
+                    availableRoles.map((role) => (
+                      <label key={role.id} className="flex items-center text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          value={role.id}
+                          checked={selectedRoleIds.includes(role.id)}
+                          onChange={() => toggleRoleSelection(role.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="ml-2">{role.name}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+                {errors.roles && <p className="mt-1 text-sm text-red-600">{errors.roles}</p>}
+              </div>
+            )}
           </div>
         )}
 
         <div className="grid gap-3 sm:grid-cols-2 sm:grid-flow-row-dense">
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-          >
+          <Button type="submit" disabled={loading}>
             {loading ? 'Saving...' : user ? 'Update User' : 'Create User'}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-            disabled={loading}
-          >
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
             Cancel
-          </button>
+          </Button>
         </div>
       </form>
     </div>

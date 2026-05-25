@@ -2,18 +2,99 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useUserContext } from '@/app/contexts/UserContext';
+import { useTenantContext } from '@/app/contexts/TenantContext';
+import { useAuth } from '@/app/contexts/AuthContext';
 import UserForm from './UserForm';
-import { User } from '@/app/services/api';
+import PermissionModal from './PermissionModal';
+import TenantForm from './TenantForm';
+import { User, Tenant, TenantInput, TenantUpdateInput } from '@/app/services/api';
+import { Button, ConfirmationDialog, Input } from '@/components/ui';
+import { Plus, Pencil, Trash2, Shield, Building2, Search } from 'lucide-react';
+import { getErrorMessage } from '@/app/utils/error';
 
 export default function UserList() {
-  const { users, loading, error, fetchUsers } = useUserContext();
+  const { users, loading, error, fetchUsers, deleteUser, toggleUserStatus } = useUserContext();
+  const { tenants, createTenant, updateTenant, loading: tenantLoading } = useTenantContext();
+  const { can, isSuperAdmin } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [permissionUser, setPermissionUser] = useState<User | null>(null);
+
+  // Tenant management state
+  const [showTenantForm, setShowTenantForm] = useState(false);
+  const [editingTenant, setEditingTenant] = useState<Tenant | undefined>(undefined);
+  const [tenantFormError, setTenantFormError] = useState<string | null>(null);
+
+  // Only super-admin can access this page
+  if (!isSuperAdmin) {
+    return (
+      <div className="rounded-md bg-yellow-50 p-4">
+        <div className="text-sm text-yellow-700">
+          This page is only accessible to super-admin users. Use "Team Members" to manage users in your tenant.
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // Tenant handlers
+  const handleCreateTenant = () => {
+    setEditingTenant(undefined);
+    setTenantFormError(null);
+    setShowTenantForm(true);
+  };
+
+  const handleEditTenant = (tenant: Tenant) => {
+    setEditingTenant(tenant);
+    setTenantFormError(null);
+    setShowTenantForm(true);
+  };
+
+  const handleCloseTenantForm = () => {
+    setShowTenantForm(false);
+    setTenantFormError(null);
+  };
+
+  const handleTenantSubmit = async (payload: TenantInput | TenantUpdateInput) => {
+    setTenantFormError(null);
+    try {
+      if (editingTenant) {
+        await updateTenant(editingTenant.id, payload);
+      } else {
+        await createTenant(payload as TenantInput);
+      }
+      await fetchUsers(); // Refresh to get updated tenants
+      handleCloseTenantForm();
+    } catch (error) {
+      setTenantFormError(getErrorMessage(error, 'Failed to save tenant'));
+      throw error;
+    }
+  };
+
+  // Get available owners (users not yet owning a tenant)
+  const usedOwnerIds = useMemo(() => {
+    const ids = new Set<string>();
+    tenants.forEach((tenant) => {
+      if (tenant.owner?.id) {
+        ids.add(tenant.owner.id);
+      }
+    });
+    return ids;
+  }, [tenants]);
+
+  const availableOwners = useMemo(() => {
+    return users.filter((user) => {
+      if (editingTenant?.owner?.id === user.id) {
+        return true;
+      }
+      return !usedOwnerIds.has(user.id);
+    });
+  }, [users, usedOwnerIds, editingTenant?.owner?.id]);
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
@@ -28,6 +109,17 @@ export default function UserList() {
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingUser(null);
+  };
+
+  const handleDelete = (user: User) => {
+    setUserToDelete(user);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+
+    await deleteUser(userToDelete.id);
+    setUserToDelete(null);
   };
 
   const filteredUsers = useMemo(() => {
@@ -68,31 +160,22 @@ export default function UserList() {
 
   return (
     <div>
-      <div className="pb-5 border-b border-gray-200 flex justify-between items-center">
-        <h3 className="text-lg leading-6 font-medium text-gray-900">Users</h3>
-        <button
-          onClick={handleCreate}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Add User
-        </button>
+      <div className="pb-5 border-b border-gray-200">
+        <h3 className="text-lg leading-6 font-medium text-gray-900">Users & Tenants</h3>
+        <p className="mt-1 text-sm text-gray-500">View and manage users and their associated tenants</p>
       </div>
 
       <div className="mt-4">
-        <div className="flex justify-between">
-          <div className="relative rounded-md shadow-sm w-64">
-            <input
+        <div className="flex justify-between items-center">
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
               type="text"
-              className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pr-10 py-2 sm:text-sm border-gray-300 rounded-md"
+              className="pl-10"
               placeholder="Search users..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-              </svg>
-            </div>
           </div>
         </div>
       </div>
@@ -111,10 +194,13 @@ export default function UserList() {
                       Email
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tenant
+                      Owned Tenants
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Roles
+                      Status
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Last Access
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Created At
@@ -125,47 +211,78 @@ export default function UserList() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{user.email}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {user.tenant?.name ?? '—'}
-                        </div>
-                        {user.memberships.length > 0 && (
-                          <div className="mt-1 text-xs text-gray-500">
-                            {user.memberships
-                              .map((membership) => `${membership.tenant.name} (${membership.role})`)
-                              .join(', ')}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {Array.isArray(user.roles) ? user.roles.map(role => role.name).join(', ') : 'No roles'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(user)}
-                          className="text-indigo-600 hover:text-indigo-900 mr-4"
-                        >
-                          Edit
-                        </button>
-                        <button className="text-red-600 hover:text-red-900">
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredUsers.map((user) => {
+                    // Get owned tenants (where user is owner)
+                    const ownedTenants = user.memberships.filter(m => m.role === 'owner');
+                    const isActive = user.is_active ?? true;
+
+                    // Format last access
+                    const lastAccess = user.last_active_at
+                      ? new Date(user.last_active_at).toLocaleString('id-ID', {
+                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                      })
+                      : 'Never';
+
+                    return (
+                      <tr key={user.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{user.email}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {ownedTenants.length > 0 ? (
+                            <div className="space-y-1">
+                              {ownedTenants.map((membership, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-900">{membership.tenant.name}</span>
+                                  {membership.tenant.operation_mode === 'foodcourt' && (
+                                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                      Foodcourt
+                                    </span>
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    onClick={() => handleEditTenant(membership.tenant)}
+                                    aria-label="Edit Tenant"
+                                    title="Edit Tenant"
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-500">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                            {isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {lastAccess}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <Button
+                            variant={isActive ? "danger" : "success"}
+                            size="sm"
+                            onClick={() => toggleUserStatus(user.id)}
+                            disabled={loading}
+                          >
+                            {isActive ? 'Disable' : 'Enable'}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -176,13 +293,47 @@ export default function UserList() {
       {showForm && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-            <UserForm 
-              user={editingUser} 
-              onClose={handleCloseForm} 
+            <UserForm
+              user={editingUser}
+              onClose={handleCloseForm}
             />
           </div>
         </div>
       )}
+
+      {permissionUser && (
+        <PermissionModal
+          user={permissionUser}
+          tenantId={permissionUser.tenant?.id || ''}
+          onClose={() => setPermissionUser(null)}
+          onSave={() => {
+            fetchUsers();
+            setPermissionUser(null);
+          }}
+        />
+      )}
+
+      <ConfirmationDialog
+        isOpen={!!userToDelete}
+        onClose={() => setUserToDelete(null)}
+        onConfirm={confirmDelete}
+        title="Konfirmasi Hapus User"
+        message={`Apakah Anda yakin ingin menghapus user "${userToDelete?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus"
+        cancelText="Batal"
+        variant="danger"
+        loading={loading}
+      />
+
+      <TenantForm
+        tenant={editingTenant}
+        users={availableOwners}
+        isOpen={showTenantForm}
+        loading={tenantLoading}
+        onClose={handleCloseTenantForm}
+        onSubmit={handleTenantSubmit}
+        error={tenantFormError}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ShiftStore, ShiftStoreInput } from '@/app/services/api';
 import { getErrorMessage } from '@/app/utils/error';
+import { Button, Input, Label, Modal } from '@/components/ui';
 
 interface ShiftStoreFormProps {
   tenantName?: string;
@@ -97,12 +98,13 @@ export default function ShiftStoreForm({
     [shiftStartTime, shiftEndTime],
   );
 
-  if (!isOpen) {
-    return null;
-  }
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (loading) {
+      return;
+    }
+
     setLocalError(null);
 
     if (!name.trim()) {
@@ -124,124 +126,99 @@ export default function ShiftStoreForm({
 
     try {
       await onSubmit(payload);
-      if (!loading) {
-        onClose();
-      }
     } catch (submitError) {
       setLocalError(getErrorMessage(submitError, 'Failed to save shift'));
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50 px-4">
-      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {shiftStore ? 'Edit Shift' : 'Create Shift'}
-            </h2>
-            {tenantName && (
-              <p className="text-xs text-gray-500">Tenant: {tenantName}</p>
-            )}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={shiftStore ? 'Edit Shift' : 'Create Shift'}
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {tenantName && (
+          <p className="-mt-1 text-xs text-gray-500">Tenant: {tenantName}</p>
+        )}
+
+        {(localError || error) && (
+          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
+            {localError || error}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-            aria-label="Close"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path
-                fillRule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
+        )}
+
+        <div>
+          <Label htmlFor="shift-name" className="mb-2">
+            Shift Name
+          </Label>
+          <Input
+            id="shift-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Morning Shift"
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {(localError || error) && (
-            <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
-              {localError || error}
-            </div>
-          )}
-
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="shift-name" className="block text-sm font-medium text-gray-700">
-              Shift Name
-            </label>
-            <input
-              id="shift-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              placeholder="e.g. Morning Shift"
+            <Label htmlFor="shift-start-time" className="mb-2">
+              Start Time
+            </Label>
+            <Input
+              id="shift-start-time"
+              type="time"
+              value={shiftStartTime}
+              onChange={(e) => setShiftStartTime(e.target.value)}
+              required
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="shift-start-time" className="block text-sm font-medium text-gray-700">
-                Start Time
-              </label>
-              <input
-                id="shift-start-time"
-                type="time"
-                value={shiftStartTime}
-                onChange={(e) => setShiftStartTime(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="shift-end-time" className="block text-sm font-medium text-gray-700">
-                End Time
-              </label>
-              <input
-                id="shift-end-time"
-                type="time"
-                value={shiftEndTime}
-                onChange={(e) => setShiftEndTime(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-                required
-              />
-            </div>
-          </div>
-
           <div>
-            <span className="block text-sm font-medium text-gray-700">Duration</span>
-            <p className="mt-1 text-sm text-gray-600">
-              {durationMinutes !== null
-                ? `${durationMinutes} minutes (${formatDurationText(durationMinutes)})`
-                : 'Set start and end times to calculate duration.'}
-            </p>
-            <p className="mt-1 text-xs text-gray-400">
-              If end time is earlier than start time, the shift is treated as crossing midnight.
-            </p>
+            <Label htmlFor="shift-end-time" className="mb-2">
+              End Time
+            </Label>
+            <Input
+              id="shift-end-time"
+              type="time"
+              value={shiftEndTime}
+              onChange={(e) => setShiftEndTime(e.target.value)}
+              required
+            />
           </div>
+        </div>
 
-          <div className="flex justify-end space-x-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="inline-flex items-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-              disabled={loading}
-            >
-              {loading ? 'Saving...' : shiftStore ? 'Update Shift' : 'Create Shift'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div>
+          <span className="block text-sm font-medium text-gray-700">Duration</span>
+          <p className="mt-1 text-sm text-gray-600">
+            {durationMinutes !== null
+              ? `${durationMinutes} minutes (${formatDurationText(durationMinutes)})`
+              : 'Set start and end times to calculate duration.'}
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            If end time is earlier than start time, the shift is treated as crossing midnight.
+          </p>
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={loading}
+          >
+            {loading ? 'Saving...' : shiftStore ? 'Update Shift' : 'Create Shift'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

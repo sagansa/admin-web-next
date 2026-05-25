@@ -13,6 +13,7 @@ interface UserContextType {
   createUser: (userData: UserCreateInput) => Promise<User | null>;
   updateUser: (id: string, userData: UserUpdateInput) => Promise<User | null>;
   deleteUser: (id: string) => Promise<boolean>;
+  toggleUserStatus: (id: string) => Promise<boolean>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -86,11 +87,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.getUsers();
-      if (response.success) {
-        const normalisedUsers = projectUsersForTenant(response.users as User[]);
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
+        const normalisedUsers = projectUsersForTenant(r.users as User[]);
         setUsers(normalisedUsers);
       } else {
-        setError(response.message || 'Failed to fetch users');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to fetch users'));
       }
     } catch (error) {
       setError(getErrorMessage(error, 'An error occurred while fetching users'));
@@ -105,17 +107,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.createUser(userData);
-      if (response.success) {
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
         await fetchUsers();
 
-        if (response.user) {
-          const [userProjection] = projectUsersForTenant([response.user as User]);
+        if (r.user) {
+          const [userProjection] = projectUsersForTenant([r.user as User]);
           return userProjection ?? null;
         }
 
         return null;
       } else {
-        setError(response.message || 'Failed to create user');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to create user'));
         return null;
       }
     } catch (error) {
@@ -132,17 +135,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.updateUser(id, userData);
-      if (response.success) {
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
         await fetchUsers();
 
-        if (response.user) {
-          const [userProjection] = projectUsersForTenant([response.user as User]);
+        if (r.user) {
+          const [userProjection] = projectUsersForTenant([r.user as User]);
           return userProjection ?? null;
         }
 
         return null;
       } else {
-        setError(response.message || 'Failed to update user');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to update user'));
         return null;
       }
     } catch (error) {
@@ -159,15 +163,38 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.deleteUser(id);
-      if (response.success) {
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
         await fetchUsers();
         return true;
       } else {
-        setError(response.message || 'Failed to delete user');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to delete user'));
         return false;
       }
     } catch (error) {
       setError(getErrorMessage(error, 'An error occurred while deleting user'));
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchUsers]);
+
+  const toggleUserStatus = useCallback(async (id: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiService.toggleUserStatus(id);
+      const r = response as Record<string, unknown>;
+      if (r.success === true) {
+        await fetchUsers();
+        return true;
+      } else {
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to update user status'));
+        return false;
+      }
+    } catch (error) {
+      setError(getErrorMessage(error, 'An error occurred while updating user status'));
       return false;
     } finally {
       setLoading(false);
@@ -184,6 +211,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         createUser,
         updateUser,
         deleteUser,
+        toggleUserStatus,
       }}
     >
       {children}

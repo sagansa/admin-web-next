@@ -34,14 +34,21 @@ export function ShiftStoreProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiService.getTenantShiftStores(tenantId);
-      if (response.success && Array.isArray(response.shift_stores)) {
-        setShiftStores(response.shift_stores as ShiftStore[]);
+      const r = response as Record<string, unknown>;
+      const shiftStoresData = (r as Record<string, unknown>).shift_stores || (r as Record<string, unknown>).shiftStores || (r as Record<string, unknown>).data;
+      if ((r as Record<string, unknown>).success === true && Array.isArray(shiftStoresData)) {
+        setShiftStores(shiftStoresData as ShiftStore[]);
       } else {
-        setError(response.message || 'Failed to fetch shift schedules');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to fetch shift schedules'));
         setShiftStores([]);
       }
     } catch (fetchError) {
-      setError(getErrorMessage(fetchError));
+      const errorMessage = getErrorMessage(fetchError);
+      
+      // Tambahkan logging untuk debugging
+      console.error('Failed to fetch shift stores:', errorMessage);
+      
+      setError(errorMessage);
       setShiftStores([]);
     } finally {
       setLoading(false);
@@ -54,13 +61,30 @@ export function ShiftStoreProvider({ children }: { children: ReactNode }) {
       setError(null);
 
       try {
-        const response = await apiService.createShiftStore(tenantId, data);
-        if (response.success) {
-          await fetchShiftStores(tenantId);
-          return response.shift_store as ShiftStore;
+        // Cek apakah sudah ada shift dengan nama yang sama
+        const existingShift = shiftStores.find(shift => 
+          shift.name.toLowerCase() === data.name.toLowerCase()
+        );
+        
+        if (existingShift) {
+          setError('A shift with this name already exists');
+          return null;
         }
 
-        setError(response.message || 'Failed to create shift');
+        const response = await apiService.createShiftStore(tenantId, data);
+        const r = response as Record<string, unknown>;
+        const shiftStore = (r as Record<string, unknown>).shift_store || (r as Record<string, unknown>).shiftStore || (r as Record<string, unknown>).data;
+        if ((r as Record<string, unknown>).success === true && shiftStore) {
+          await fetchShiftStores(tenantId);
+          return shiftStore as ShiftStore;
+        }
+
+        const msg = (r as Record<string, unknown>).message as string | undefined;
+        if (typeof msg === 'string' && msg.includes('Duplicate entry')) {
+          setError('A shift with this name already exists for this tenant');
+        } else {
+          setError(String(msg ?? 'Failed to create shift'));
+        }
         return null;
       } catch (createError) {
         setError(getErrorMessage(createError));
@@ -69,7 +93,7 @@ export function ShiftStoreProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       }
     },
-    [fetchShiftStores],
+    [fetchShiftStores, shiftStores],
   );
 
   const updateShiftStore = useCallback(
@@ -79,12 +103,13 @@ export function ShiftStoreProvider({ children }: { children: ReactNode }) {
 
       try {
         const response = await apiService.updateShiftStore(tenantId, shiftStoreId, data);
-        if (response.success) {
+        const r = response as Record<string, unknown>;
+        if ((r as Record<string, unknown>).success === true) {
           await fetchShiftStores(tenantId);
-          return response.shift_store as ShiftStore;
+          return (r.shift_store ?? r.shiftStore) as ShiftStore;
         }
 
-        setError(response.message || 'Failed to update shift');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to update shift'));
         return null;
       } catch (updateError) {
         setError(getErrorMessage(updateError));
@@ -103,12 +128,13 @@ export function ShiftStoreProvider({ children }: { children: ReactNode }) {
 
       try {
         const response = await apiService.deleteShiftStore(tenantId, shiftStoreId);
-        if (response.success) {
+        const r = response as Record<string, unknown>;
+        if ((r as Record<string, unknown>).success === true) {
           await fetchShiftStores(tenantId);
           return true;
         }
 
-        setError(response.message || 'Failed to delete shift');
+        setError(String((r as Record<string, unknown>).message ?? 'Failed to delete shift'));
         return false;
       } catch (deleteError) {
         setError(getErrorMessage(deleteError));
