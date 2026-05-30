@@ -6,6 +6,7 @@ type BuildMenuOrderUrlParams = {
   tenantId: string;
   storeId: string;
   tableCode?: string;
+  orderType?: 'dine-in' | 'takeaway';
 };
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
@@ -20,14 +21,21 @@ export const buildMenuOrderUrl = ({
   tenantId,
   storeId,
   tableCode,
+  orderType,
 }: BuildMenuOrderUrlParams) => {
   const url = new URL(normalizeBaseUrl(baseUrl));
+  const normalizedTableCode = tableCode === 'STORE' ? 'TAKEAWAY' : tableCode;
+  const normalizedOrderType = orderType || (tableCode === 'STORE' ? 'takeaway' : undefined);
 
   url.searchParams.set('tenantId', tenantId);
   url.searchParams.set('storeId', storeId);
 
-  if (tableCode) {
-    url.searchParams.set('tableCode', tableCode);
+  if (normalizedTableCode) {
+    url.searchParams.set('tableCode', normalizedTableCode);
+  }
+
+  if (normalizedOrderType) {
+    url.searchParams.set('orderType', normalizedOrderType);
   }
 
   return url.toString();

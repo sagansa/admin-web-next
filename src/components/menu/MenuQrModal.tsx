@@ -60,7 +60,7 @@ export default function MenuQrModal({
           <div className="min-w-0">
             <div className="text-sm font-semibold text-gray-900">{storeName}</div>
             <div className="mt-1 text-sm text-gray-600">
-              {isStoreQr ? 'Store order' : `Meja ${tableCode}`}
+              {isStoreQr ? 'Takeaway / Non-online' : `Meja ${tableCode}`}
             </div>
           </div>
           <QrCode className="h-8 w-8 shrink-0 text-indigo-600" />
