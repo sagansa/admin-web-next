@@ -112,11 +112,34 @@ class ApiService {
   }
 
   async login(email: string, password: string) {
-    const response = await this.request('/auth/login', {
+    // Use raw fetch to handle 409 (tenant setup required) specially
+    const url = `${API_BASE_URL}/auth/login`;
+    const response = await fetch(url, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: JSON.stringify({ email, password }),
     });
-    return this.normaliseApiResponse(response, normaliseUser, 'user');
+
+    const rawBody = await response.text();
+    let parsedBody: any = null;
+    if (rawBody) {
+      try { parsedBody = JSON.parse(rawBody); } catch { parsedBody = rawBody; }
+    }
+
+    if (!response.ok) {
+      // Handle tenant setup required (409) - return special response instead of throwing
+      if (response.status === 409 && parsedBody?.requires_tenant_setup) {
+        return { success: false, requires_tenant_setup: true, token: parsedBody.token, message: parsedBody.message };
+      }
+      const message = extractErrorMessage(parsedBody) ?? `HTTP error! status: ${response.status}`;
+      const errors = extractValidationErrors(parsedBody);
+      throw new ApiError(message, response.status, errors);
+    }
+
+    return this.normaliseApiResponse(parsedBody, normaliseUser, 'user');
   }
 
   async logout() {
@@ -766,8 +789,11 @@ class ApiService {
       formData.append('is_active', data.is_active ? '1' : '0');
       formData.append('require_proof', data.require_proof ? '1' : '0');
 
-      // Append the QRIS image file
-      formData.append('qr_image', data.details.qr_image_file);
+      appendPaymentMethodDetails(formData, data.details);
+
+      if (!data.details.qris_payload) {
+        formData.append('qr_image', data.details.qr_image_file);
+      }
 
       const response = await this.request('/payment-methods', {
         method: 'POST',
@@ -803,8 +829,11 @@ class ApiService {
       if (data.is_active !== undefined) formData.append('is_active', data.is_active ? '1' : '0');
       if (data.require_proof !== undefined) formData.append('require_proof', data.require_proof ? '1' : '0');
 
-      // Append the QRIS image file
-      formData.append('qr_image', data.details.qr_image_file);
+      appendPaymentMethodDetails(formData, data.details);
+
+      if (!data.details.qris_payload) {
+        formData.append('qr_image', data.details.qr_image_file);
+      }
       formData.append('_method', 'PUT');
 
       const response = await this.request(`/payment-methods/${id}`, {
@@ -1236,7 +1265,7 @@ export interface User {
 
 export interface TenantInput {
   name: string;
-  owner_id: string;
+  owner_id?: string;
   operation_mode?: 'standard' | 'foodcourt';
 }
 
@@ -1408,6 +1437,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function appendPaymentMethodDetails(formData: FormData, details: unknown) {
+  if (!isRecord(details)) {
+    return;
+  }
+
+  for (const [key, value] of Object.entries(details)) {
+    if (key === 'qr_image_file' || key === 'payment_image' || value === undefined || value === null) {
+      continue;
+    }
+
+    if (typeof value === 'object') {
+      formData.append(`details[${key}]`, JSON.stringify(value));
+      continue;
+    }
+
+    formData.append(`details[${key}]`, String(value));
+  }
+}
+
 function extractErrorMessage(body: unknown): string | null {
   if (isRecord(body) && typeof body.message === 'string') {
     return body.message;
@@ -1563,6 +1611,7 @@ interface ApiShiftStorePayload {
 
 interface ApiTenantOwnerPayload {
   id: string;
+  uuid?: string | null;
   name: string;
   email: string;
 }
@@ -1584,6 +1633,7 @@ interface ApiTenantPayload {
 
 interface ApiUserPayload {
   id: string;
+  uuid?: string | null;
   name: string;
   email: string;
   email_verified_at?: string | null;
@@ -1855,7 +1905,7 @@ function normaliseTenant(tenant: ApiTenantPayload): Tenant {
     users_count: tenant.users_count,
     owner: tenant.owner
       ? {
-        id: tenant.owner.id,
+        id: tenant.owner.uuid ?? tenant.owner.id,
         name: tenant.owner.name,
         email: tenant.owner.email,
       }
@@ -2086,7 +2136,7 @@ function normaliseUser(user: ApiUserPayload): User {
   }
 
   return {
-    id: user.id,
+    id: user.uuid ?? user.id,
     name: user.name,
     email: user.email,
     email_verified_at: user.email_verified_at ?? null,
@@ -2103,7 +2153,7 @@ function normaliseUser(user: ApiUserPayload): User {
 
 function normaliseBasicUser(user: ApiUserPayload): Pick<User, 'id' | 'name' | 'email'> {
   return {
-    id: user.id,
+    id: user.uuid ?? user.id,
     name: user.name,
     email: user.email,
   };

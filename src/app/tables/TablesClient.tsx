@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/app/contexts/AuthContext';
 import apiService from '@/app/services/api';
 import { Button, ConfirmationDialog, Modal, Select } from '@/components/ui';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, QrCode, Trash2 } from 'lucide-react';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Badge } from '@/components/ui/Badge';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { FormField } from '@/components/ui/FormField';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { getErrorMessage } from '@/app/utils/error';
+import MenuQrModal from '@/components/menu/MenuQrModal';
 
 type Table = {
     id: string;
@@ -29,7 +30,7 @@ type StoreOption = {
 };
 
 export default function TablesClient() {
-    const { loading: authLoading, isAuthenticated } = useAuth();
+    const { loading: authLoading, isAuthenticated, activeTenant } = useAuth();
     const [tables, setTables] = useState<Table[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export default function TablesClient() {
     // Delete State
     const [tableToDelete, setTableToDelete] = useState<Table | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const [qrTarget, setQrTarget] = useState<Table | 'store' | null>(null);
 
     const fetchStores = useCallback(async () => {
         if (authLoading || !isAuthenticated) return;
@@ -94,6 +96,9 @@ export default function TablesClient() {
             fetchTables();
         }
     }, [fetchTables, selectedStore, authLoading, isAuthenticated]);
+
+    const selectedStoreOption = stores.find((store) => store.id === selectedStore);
+    const canGenerateQr = !!activeTenant?.id && !!selectedStoreOption;
 
     if (authLoading) {
         return <LoadingState message="Checking authentication..." />;
@@ -169,20 +174,32 @@ export default function TablesClient() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Tables</h1>
                     <p className="mt-1 text-sm text-gray-700">
                         Manage restaurant tables for Dine-in.
                     </p>
                 </div>
-                <Button
-                    onClick={() => handleOpenModal()}
-                    disabled={!selectedStore}
-                >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Table
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="secondary"
+                        onClick={() => setQrTarget('store')}
+                        disabled={!canGenerateQr}
+                        title="Generate Store QR"
+                        aria-label="Generate Store QR"
+                    >
+                        <QrCode className="h-4 w-4" />
+                        Store QR
+                    </Button>
+                    <Button
+                        onClick={() => handleOpenModal()}
+                        disabled={!selectedStore}
+                    >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Table
+                    </Button>
+                </div>
             </div>
 
             {/* Store Filter */}
@@ -261,6 +278,16 @@ export default function TablesClient() {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex items-center justify-end space-x-2">
+                                            <Button
+                                                variant="secondary"
+                                                size="icon-sm"
+                                                onClick={() => setQrTarget(table)}
+                                                disabled={!canGenerateQr}
+                                                aria-label={`Generate QR for table ${table.table_number}`}
+                                                title="Generate Table QR"
+                                            >
+                                                <QrCode className="h-4 w-4" />
+                                            </Button>
                                             <Button
                                                 // variant="info"
                                                 size="icon-sm"
@@ -346,6 +373,18 @@ export default function TablesClient() {
                 variant="danger"
                 loading={deleteLoading}
             />
+
+            {canGenerateQr && (
+                <MenuQrModal
+                    isOpen={qrTarget !== null}
+                    onClose={() => setQrTarget(null)}
+                    tenantId={activeTenant?.id || ''}
+                    storeId={selectedStoreOption?.id || ''}
+                    storeName={selectedStoreOption?.name || 'Store'}
+                    tableCode={qrTarget === 'store' ? 'STORE' : qrTarget?.table_number}
+                    title={qrTarget === 'store' || !qrTarget ? 'QR Store' : `QR Meja ${qrTarget.table_number}`}
+                />
+            )}
         </div>
     );
 }

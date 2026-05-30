@@ -15,11 +15,39 @@ import {
     SelectValue,
 } from '@/components/ui/Select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { QRIS_ADDITIONAL_DATA_DISPLAY_LABELS, getQrisSummaryItems, parseQrisPayload } from '@/app/lib/qris';
+
+type BrowserWithBarcodeDetector = Window & {
+    BarcodeDetector?: new (options?: { formats?: string[] }) => {
+        detect: (image: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
+    };
+};
+
+type PaymentMethodType = PaymentMethod['type'];
+
+type PaymentMethodDetails = Record<string, unknown> & {
+    image?: string;
+    qr_image?: string;
+    qris_payload?: string;
+    bank_name?: string;
+    account_number?: string;
+    account_holder?: string;
+    payment_image?: unknown;
+};
+
+interface PaymentMethodSubmitData {
+    store_id: string;
+    type: PaymentMethodType;
+    name: string;
+    is_active: boolean;
+    require_proof: boolean;
+    details: PaymentMethodDetails;
+}
 
 interface PaymentMethodFormProps {
     initialData?: PaymentMethod;
     storeId: string;
-    onSubmit: (data: any) => Promise<void>;
+    onSubmit: (data: PaymentMethodSubmitData) => Promise<void>;
     onCancel: () => void;
 }
 
@@ -29,16 +57,18 @@ export default function PaymentMethodForm({
     onSubmit,
     onCancel,
 }: PaymentMethodFormProps) {
-    const [type, setType] = useState<'cash' | 'qris' | 'transfer' | 'debit' | 'credit' | 'online'>(
+    const [type, setType] = useState<PaymentMethodType>(
         initialData?.type || 'cash'
     );
     const [name, setName] = useState(initialData?.name || '');
     const [isActive, setIsActive] = useState(initialData?.is_active ?? true);
     const [requireProof, setRequireProof] = useState(initialData?.require_proof ?? false);
-    const [details, setDetails] = useState<any>(initialData?.details || {});
+    const [details, setDetails] = useState<PaymentMethodDetails>((initialData?.details || {}) as PaymentMethodDetails);
     const [loading, setLoading] = useState(false);
-    const [qrisFiles, setQrisFiles] = useState<any[]>([]);
-    const [paymentImageFiles, setPaymentImageFiles] = useState<any[]>([]);
+    const [paymentImageFiles, setPaymentImageFiles] = useState<unknown[]>([]);
+    const [qrisReadStatus, setQrisReadStatus] = useState<string>('');
+    const qrisData = parseQrisPayload(details?.qris_payload);
+    const qrisSummaryItems = getQrisSummaryItems(details?.qris_payload);
 
     // Reset details when type changes, unless it's initial load
     useEffect(() => {
@@ -46,45 +76,23 @@ export default function PaymentMethodForm({
             if (type === 'cash') {
                 setName('Tunai');
                 setDetails({});
-                setQrisFiles([]);
             } else if (type === 'qris') {
                 setName('QRIS');
-                setDetails({ qr_image: '' });
-                setQrisFiles([]);
+                setDetails({});
+                setQrisReadStatus('');
             } else if (type === 'transfer') {
                 setName('Transfer Bank');
                 setDetails({ bank_name: '', account_number: '', account_holder: '' });
-                setQrisFiles([]);
             } else if (type === 'debit') {
                 setName('Debit Card');
                 setDetails({});
                 setDetails({});
-                setQrisFiles([]);
             } else if (type === 'online') {
                 setName('Online Delivery');
                 setDetails({});
-                setQrisFiles([]);
             }
         }
     }, [type, initialData]);
-
-    // Load existing QRIS image if editing
-    useEffect(() => {
-        if (initialData?.details?.qr_image && type === 'qris') {
-            const imageUrl = initialData.details.qr_image;
-            if (imageUrl.startsWith('http') || imageUrl.startsWith('/')) {
-                fetch(imageUrl)
-                    .then(res => res.blob())
-                    .then(blob => {
-                        const file = new File([blob], 'qris.jpg', { type: blob.type });
-                        setQrisFiles([file]);
-                    })
-                    .catch(() => {
-                        setDetails({ ...details, qr_image: imageUrl });
-                    });
-            }
-        }
-    }, [initialData, type]);
 
     // Load existing Payment Image if editing
     useEffect(() => {
@@ -105,11 +113,61 @@ export default function PaymentMethodForm({
         }
     }, [initialData]);
 
+    const readQrisPayload = async (file: File) => {
+        const BarcodeDetector = (window as BrowserWithBarcodeDetector).BarcodeDetector;
+
+        if (!BarcodeDetector) {
+            setQrisReadStatus('Browser belum mendukung pembacaan QR otomatis. Gunakan browser yang mendukung BarcodeDetector untuk membaca data QRIS.');
+            return;
+        }
+
+        try {
+            setQrisReadStatus('Membaca data QRIS...');
+            const detector = new BarcodeDetector({ formats: ['qr_code'] });
+            const bitmap = await createImageBitmap(file);
+            const codes = await detector.detect(bitmap);
+            bitmap.close();
+
+            const payload = codes[0]?.rawValue?.trim();
+
+            if (!payload) {
+                setQrisReadStatus('QR tidak terbaca. Coba upload gambar QRIS yang lebih jelas.');
+                return;
+            }
+
+            setDetails((current) => {
+                const next = { ...current };
+                delete next.qr_image;
+
+                return {
+                    ...next,
+                    qris_payload: payload,
+                };
+            });
+            setQrisReadStatus('Data QRIS berhasil dibaca. POS akan menampilkan QR dinamis sesuai nominal.');
+        } catch (error) {
+            console.error('Failed to read QRIS image:', error);
+            setQrisReadStatus('QR tidak terbaca. Coba upload ulang dengan gambar yang lebih jelas.');
+        }
+    };
+
+    const handleQrisFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const input = event.currentTarget;
+        const file = input.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        await readQrisPayload(file);
+        input.value = '';
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const submitData: any = {
+            const submitData: PaymentMethodSubmitData = {
                 store_id: storeId,
                 type,
                 name,
@@ -117,14 +175,6 @@ export default function PaymentMethodForm({
                 require_proof: requireProof,
                 details,
             };
-
-            // Add QRIS file if present
-            if (type === 'qris' && qrisFiles.length > 0) {
-                submitData.details = {
-                    ...details,
-                    qr_image_file: qrisFiles[0],
-                };
-            }
 
             // Add Payment Image file if present
             if (paymentImageFiles.length > 0) {
@@ -156,7 +206,7 @@ export default function PaymentMethodForm({
                         <Label htmlFor="type">Tipe Pembayaran</Label>
                         <Select
                             value={type}
-                            onValueChange={(value) => setType(value as any)}
+                            onValueChange={(value) => setType(value as PaymentMethodType)}
                             disabled={!!initialData}
                         >
                             <SelectTrigger id="type">
@@ -204,20 +254,61 @@ export default function PaymentMethodForm({
 
                     {type === 'qris' && (
                         <div className="space-y-2">
-                            <Label>Upload Gambar QRIS</Label>
-                            <FilePondUploader
-                                files={qrisFiles}
-                                onUpdateFiles={(fileItems) => {
-                                    setQrisFiles(fileItems.map((fileItem) => fileItem.file));
-                                }}
-                                allowMultiple={false}
-                                maxFiles={1}
-                                acceptedFileTypes={['image/*']}
-                                labelIdle='Drag & Drop gambar QRIS atau <span class="filepond--label-action">Browse</span>'
+                            <Label htmlFor="qris_reader">Baca Data QRIS</Label>
+                            <Input
+                                id="qris_reader"
+                                type="file"
+                                accept="image/*"
+                                onChange={handleQrisFileChange}
                             />
                             <p className="text-xs text-muted-foreground">
-                                Upload gambar QRIS Anda (JPG, PNG, atau format gambar lainnya).
+                                Gambar hanya dipakai sementara untuk membaca payload QRIS. Setelah terbaca, file langsung dikosongkan dan tidak ikut disimpan.
                             </p>
+                            {qrisReadStatus && (
+                                <p className="text-xs text-muted-foreground">
+                                    {qrisReadStatus}
+                                </p>
+                            )}
+                            {qrisData && (
+                                <div className="rounded-md border bg-muted/20 p-4">
+                                    <div className="mb-3">
+                                        <p className="text-sm font-medium">Detail Data QRIS</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Data berikut dibaca otomatis dari payload QRIS.
+                                        </p>
+                                    </div>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        {qrisSummaryItems.map((item) => (
+                                            <div key={item.label} className="space-y-1">
+                                                <p className="text-xs text-muted-foreground">{item.label}</p>
+                                                <p className="break-words text-sm font-medium">{item.value}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {qrisData.additionalData && Object.keys(qrisData.additionalData).length > 0 && (
+                                        <div className="mt-4 border-t pt-3">
+                                            <p className="mb-2 text-xs font-medium text-muted-foreground">Data Tambahan</p>
+                                            <div className="grid gap-2 sm:grid-cols-2">
+                                                {Object.entries(qrisData.additionalData).map(([key, value]) => (
+                                                    value ? (
+                                                        <div key={key} className="text-sm">
+                                                            <span className="text-muted-foreground">
+                                                                {QRIS_ADDITIONAL_DATA_DISPLAY_LABELS[key as keyof typeof QRIS_ADDITIONAL_DATA_DISPLAY_LABELS] || key}: </span>
+                                                            <span className="break-words font-medium">{value}</span>
+                                                        </div>
+                                                    ) : null
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="mt-4 border-t pt-3">
+                                        <p className="mb-1 text-xs font-medium text-muted-foreground">Payload QRIS</p>
+                                        <p className="max-h-24 overflow-auto break-all rounded bg-background p-2 text-xs">
+                                            {qrisData.rawPayload}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

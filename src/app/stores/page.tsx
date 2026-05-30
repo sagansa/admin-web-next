@@ -10,8 +10,9 @@ import { TenantProvider, useTenantContext } from '@/app/contexts/TenantContext';
 import { StoreProvider, useStoreContext } from '@/app/contexts/StoreContext';
 import StoreForm from './StoreForm';
 import { getErrorMessage } from '@/app/utils/error';
-import { Button, ConfirmationDialog, Input, Select } from '@/components/ui';
-import { Plus, Pencil, Trash2, CreditCard, Search } from 'lucide-react';
+import { Button, ConfirmationDialog, Input } from '@/components/ui';
+import { Plus, Pencil, Trash2, CreditCard, Search, QrCode } from 'lucide-react';
+import MenuQrModal from '@/components/menu/MenuQrModal';
 
 function StoresContent() {
   const { isSuperAdmin, user: currentUser } = useAuth();
@@ -33,6 +34,7 @@ function StoresContent() {
   const [activeStore, setActiveStore] = useState<Store | undefined>(undefined);
   const [formError, setFormError] = useState<string | null>(null);
   const [storeToDelete, setStoreToDelete] = useState<Store | null>(null);
+  const [qrStore, setQrStore] = useState<Store | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -298,6 +300,15 @@ function StoresContent() {
                           <Button
                             variant="secondary"
                             size="icon-sm"
+                            onClick={() => setQrStore(store)}
+                            aria-label="Generate Store QR"
+                            title="Generate Store QR"
+                          >
+                            <QrCode className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="icon-sm"
                             onClick={() => router.push(`/stores/${store.id}/payment-methods`)}
                             aria-label="Payment Methods"
                             title="Payment Methods"
@@ -364,6 +375,18 @@ function StoresContent() {
         variant="danger"
         loading={storeLoading}
       />
+
+      {activeTenantId && qrStore && (
+        <MenuQrModal
+          isOpen={!!qrStore}
+          onClose={() => setQrStore(null)}
+          tenantId={activeTenantId}
+          storeId={qrStore.id}
+          storeName={qrStore.name}
+          tableCode="STORE"
+          title={`QR Store ${qrStore.name}`}
+        />
+      )}
     </AdminLayout >
   );
 }

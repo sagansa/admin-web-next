@@ -36,7 +36,11 @@ export default function LoginPage() {
 
     try {
       console.log('Attempting login with email:', email);
-      await login(email, password);
+      const result = await login(email, password);
+      if (result.requiresTenantSetup) {
+        router.replace('/setup-tenant');
+        return;
+      }
       console.log('Login successful, redirecting to dashboard...');
       router.push('/dashboard');
     } catch (error) {

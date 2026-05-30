@@ -5,6 +5,7 @@ import { Pencil, Trash2, CheckCircle, XCircle, CreditCard, Banknote, QrCode, Bui
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
+import { getQrisSummaryItems, parseQrisPayload } from '@/app/lib/qris';
 import {
     Table,
     TableBody,
@@ -53,6 +54,55 @@ const getPaymentTypeColor = (type: string) => {
     }
 };
 
+const getPaymentDetail = (method: PaymentMethod) => {
+    if (method.type === 'qris') {
+        const qrisData = parseQrisPayload(method.details?.qris_payload);
+        const summaryItems = getQrisSummaryItems(method.details?.qris_payload).slice(0, 4);
+
+        if (!qrisData) {
+            return (
+                <div className="space-y-1">
+                    <span className="text-sm text-muted-foreground">
+                        {method.details?.qris_payload ? 'Payload QRIS belum dapat dibaca' : 'Data QRIS belum tersedia'}
+                    </span>
+                    <div className="text-xs text-muted-foreground">
+                        {method.require_proof ? 'Wajib Bukti Bayar' : 'Tanpa Bukti Bayar'}
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="max-w-md space-y-2">
+                <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                    {summaryItems.map((item) => (
+                        <div key={item.label} className="text-xs">
+                            <span className="text-muted-foreground">{item.label}: </span>
+                            <span className="break-words font-medium">{item.value}</span>
+                        </div>
+                    ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                        {qrisData.pointOfInitiationLabel}
+                    </Badge>
+                    {method.require_proof && (
+                        <Badge variant="outline" className="text-xs">
+                            Wajib Bukti Bayar
+                        </Badge>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <span className="text-sm text-muted-foreground">
+            {method.require_proof ? 'Wajib Bukti Bayar' : 'Tanpa Bukti Bayar'}
+        </span>
+    );
+};
+
 export default function PaymentMethodList({
     paymentMethods,
     onEdit,
@@ -90,9 +140,9 @@ export default function PaymentMethodList({
                             <TableCell>
                                 <div className="flex items-center gap-3">
                                     <div className={`p-2 rounded-lg ${getPaymentTypeColor(method.type)} overflow-hidden relative`}>
-                                        {(method.details?.image || method.details?.qr_image) ? (
+                                        {method.details?.image ? (
                                             <img
-                                                src={method.details.image || method.details.qr_image}
+                                                src={method.details.image}
                                                 alt={method.name}
                                                 className="h-8 w-8 object-cover rounded"
                                             />
@@ -123,9 +173,7 @@ export default function PaymentMethodList({
                                 </Badge>
                             </TableCell>
                             <TableCell>
-                                <span className="text-sm text-muted-foreground">
-                                    {method.require_proof ? 'Wajib Bukti Bayar' : 'Tanpa Bukti Bayar'}
-                                </span>
+                                {getPaymentDetail(method)}
                             </TableCell>
                             <TableCell>
                                 <Button

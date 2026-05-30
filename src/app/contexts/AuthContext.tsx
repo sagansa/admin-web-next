@@ -1,14 +1,18 @@
 'use client';
 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import apiService, { User, Permission } from '@/app/services/api';
+import apiService, { ApiError, User, Permission } from '@/app/services/api';
+
+type LoginResult = {
+  requiresTenantSetup: boolean;
+};
 
 interface AuthContextType {
   user: User | null;
   activeTenant: import('@/app/services/api').Tenant | null;
   availableTenants: import('@/app/services/api').Tenant[];
   switchTenant: (tenantId: string) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   register: (
     name: string,
     email: string,
@@ -17,6 +21,7 @@ interface AuthContextType {
     tenantName: string,
   ) => Promise<void>;
   completeInvitation: (token: string, name: string, password: string, passwordConfirmation: string) => Promise<void>;
+  refreshUser: () => Promise<User | null>;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -31,6 +36,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [activeTenant, setActiveTenant] = useState<import('@/app/services/api').Tenant | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const applyAuthenticatedUser = (userData: User) => {
+    setUser(userData);
+
+    const savedTenantId = localStorage.getItem('activeTenantId');
+    const savedTenant = savedTenantId && userData.tenants
+      ? userData.tenants.find(t => t.id === savedTenantId)
+      : null;
+    const defaultTenant = savedTenant || userData.tenant || userData.tenants?.[0] || null;
+
+    setActiveTenant(defaultTenant);
+
+    if (defaultTenant) {
+      localStorage.setItem('activeTenantId', defaultTenant.id);
+    } else {
+      localStorage.removeItem('activeTenantId');
+    }
+  };
+
+  const redirectToTenantSetup = () => {
+    setUser(null);
+    setActiveTenant(null);
+    localStorage.removeItem('activeTenantId');
+
+    if (typeof window !== 'undefined' && window.location.pathname !== '/setup-tenant') {
+      window.location.href = '/setup-tenant';
+    }
+  };
+
+  const clearAuthSession = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('activeTenantId');
+    apiService.setToken(null);
+    setUser(null);
+    setActiveTenant(null);
+  };
 
   useEffect(() => {
     console.log('AuthContext: Checking authentication status...');
@@ -47,26 +88,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const r = response as Record<string, unknown>;
           if (r.success === true) {
             console.log('AuthContext: User authenticated successfully');
-            const userData = r.user as User;
-            setUser(userData);
-            // Set active tenant from localStorage or default to user.tenant
-            const savedTenantId = localStorage.getItem('activeTenantId');
-            if (savedTenantId && userData.tenants) {
-              const savedTenant = userData.tenants.find(t => t.id === savedTenantId);
-              setActiveTenant(savedTenant || userData.tenant || null);
-            } else {
-              setActiveTenant(userData.tenant || null);
-            }
+            applyAuthenticatedUser(r.user as User);
           } else {
             console.log('AuthContext: Authentication failed, response:', response);
           }
         })
         .catch((error) => {
           console.error('AuthContext: Error getting authenticated user:', error);
+          if (error instanceof ApiError && error.status === 409) {
+            redirectToTenantSetup();
+            return;
+          }
           // Token is invalid, clear it
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('activeTenantId');
-          apiService.setToken(null);
+          clearAuthSession();
         })
         .finally(() => {
           setLoading(false);
@@ -81,6 +115,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await apiService.login(email, password);
       const r = response as Record<string, unknown>;
+
+      // Handle tenant setup required (409 response)
+      if (r.requires_tenant_setup === true) {
+        const token = String(r.token ?? '');
+        if (token) {
+          localStorage.setItem('authToken', token);
+          apiService.setToken(token);
+        }
+        setUser(null);
+        setActiveTenant(null);
+        localStorage.removeItem('activeTenantId');
+        return { requiresTenantSetup: true };
+      }
+
       if (r.success === true) {
         const token = String(r.token ?? r.access_token ?? '');
         if (!token) {
@@ -88,21 +136,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         localStorage.setItem('authToken', token);
         apiService.setToken(token);
-        const userData = r.user as User;
-        setUser(userData);
-        // Set default active tenant
-        const defaultTenant = userData.tenant || userData.tenants?.[0] || null;
-        setActiveTenant(defaultTenant);
-        if (defaultTenant) {
-          localStorage.setItem('activeTenantId', defaultTenant.id);
-        }
-        return;
+        applyAuthenticatedUser(r.user as User);
+        return { requiresTenantSetup: false };
       } else {
         throw new Error(String((r as Record<string, unknown>).message ?? 'Login failed'));
       }
     } catch (error) {
       throw error;
     }
+  };
+
+  const refreshUser = async () => {
+    const response = await apiService.getAuthenticatedUser();
+    const r = response as Record<string, unknown>;
+
+    if (r.success === true) {
+      const userData = r.user as User;
+      applyAuthenticatedUser(userData);
+      return userData;
+    }
+
+    throw new Error(String(r.message ?? 'Failed to refresh authenticated user'));
   };
 
   const register = async (
@@ -203,6 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         completeInvitation,
+        refreshUser,
         logout,
         isAuthenticated,
         isAdmin,
