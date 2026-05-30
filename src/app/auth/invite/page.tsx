@@ -1,13 +1,13 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/app/contexts/AuthContext';
 import apiService, { InvitationDetails } from '@/app/services/api';
 import { getErrorMessage } from '@/app/utils/error';
 
-export default function InvitationPage() {
+function InvitationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { completeInvitation } = useAuth();
@@ -177,5 +177,19 @@ export default function InvitationPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function InvitationPage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+        </div>
+      )}
+    >
+      <InvitationContent />
+    </Suspense>
   );
 }

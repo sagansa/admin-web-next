@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -17,7 +17,7 @@ const CustomerTypesContent = dynamic(() => import('@/app/customer-types/Customer
 
 type TabValue = 'receipt-config' | 'products' | 'categories' | 'tables' | 'customer-types';
 
-export default function PointOfSalePage() {
+function PointOfSaleContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState<TabValue>('products');
@@ -77,5 +77,13 @@ export default function PointOfSalePage() {
                 </div>
             </AdminLayout>
         </ProtectedRoute>
+    );
+}
+
+export default function PointOfSalePage() {
+    return (
+        <Suspense fallback={null}>
+            <PointOfSaleContent />
+        </Suspense>
     );
 }

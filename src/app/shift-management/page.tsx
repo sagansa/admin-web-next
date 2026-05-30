@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -16,7 +16,7 @@ const ShiftScheduleContent = dynamic(() => import('@/app/shift-schedules/ShiftSc
 
 type TabValue = 'shift-schedule';
 
-export default function ShiftManagementPage() {
+function ShiftManagementContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState<TabValue>('shift-schedule');
@@ -60,5 +60,13 @@ export default function ShiftManagementPage() {
                 </div>
             </AdminLayout>
         </ProtectedRoute>
+    );
+}
+
+export default function ShiftManagementPage() {
+    return (
+        <Suspense fallback={null}>
+            <ShiftManagementContent />
+        </Suspense>
     );
 }

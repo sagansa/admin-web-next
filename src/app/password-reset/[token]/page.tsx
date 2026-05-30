@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import apiService from '@/app/services/api';
 import { getErrorMessage } from '@/app/utils/error';
 
-export default function PasswordResetPage({ params }: { params: { token: string } }) {
+function PasswordResetContent({ params }: { params: { token: string } }) {
   const token = params.token;
   const searchParams = useSearchParams();
   const emailParam = searchParams.get('email') || '';
@@ -133,5 +133,19 @@ export default function PasswordResetPage({ params }: { params: { token: string 
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PasswordResetPage({ params }: { params: { token: string } }) {
+  return (
+    <Suspense
+      fallback={(
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-indigo-600" />
+        </div>
+      )}
+    >
+      <PasswordResetContent params={params} />
+    </Suspense>
   );
 }

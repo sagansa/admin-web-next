@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Copy } from 'lucide-react';
 import apiService from '@/app/services/api';
 import { InvitationCompletionInput } from '@/app/services/api';
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -20,16 +20,6 @@ export default function AcceptInvitePage() {
     password: '',
     password_confirmation: '',
   });
-
-  useEffect(() => {
-    if (!token) {
-      setError('Token undangan tidak ditemukan');
-      setLoading(false);
-      return;
-    }
-
-    fetchInvitation();
-  }, [token, fetchInvitation]);
 
   const fetchInvitation = useCallback(async () => {
     try {
@@ -46,6 +36,16 @@ export default function AcceptInvitePage() {
       setLoading(false);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      setError('Token undangan tidak ditemukan');
+      setLoading(false);
+      return;
+    }
+
+    fetchInvitation();
+  }, [token, fetchInvitation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,7 +139,7 @@ export default function AcceptInvitePage() {
                 type="text"
                 readOnly
                 value={typeof window !== 'undefined' ? window.location.href : ''}
-                onClick={(e: React.ChangeEvent<HTMLInputElement>) => e.currentTarget.select()}
+                onClick={(e: React.MouseEvent<HTMLInputElement>) => e.currentTarget.select()}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white text-sm"
               />
               <button
@@ -148,7 +148,6 @@ export default function AcceptInvitePage() {
                   if (typeof window !== 'undefined') {
                     navigator.clipboard.writeText(window.location.href);
                     const btn = document.getElementById('copyBtn') as HTMLButtonElement | null;
-                    const originalText = btn?.textContent;
                     if (btn) {
                       btn.textContent = 'Copied!';
                       btn.className = 'px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors duration-200';
@@ -245,5 +244,19 @@ export default function AcceptInvitePage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      )}
+    >
+      <AcceptInviteContent />
+    </Suspense>
   );
 }

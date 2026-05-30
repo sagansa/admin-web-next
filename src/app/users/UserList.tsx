@@ -27,17 +27,6 @@ export default function UserList() {
   const [editingTenant, setEditingTenant] = useState<Tenant | undefined>(undefined);
   const [tenantFormError, setTenantFormError] = useState<string | null>(null);
 
-  // Only super-admin can access this page
-  if (!isSuperAdmin) {
-    return (
-      <div className="rounded-md bg-yellow-50 p-4">
-        <div className="text-sm text-yellow-700">
-          This page is only accessible to super-admin users. Use "Team Members" to manage users in your tenant.
-        </div>
-      </div>
-    );
-  }
-
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
@@ -139,6 +128,17 @@ export default function UserList() {
       return matchesName || matchesEmail || matchesPrimaryTenant || matchesMembership;
     });
   }, [searchTerm, users]);
+
+  // Only super-admin can access this page
+  if (!isSuperAdmin) {
+    return (
+      <div className="rounded-md bg-yellow-50 p-4">
+        <div className="text-sm text-yellow-700">
+          This page is only accessible to super-admin users. Use &quot;Team Members&quot; to manage users in your tenant.
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -272,7 +272,7 @@ export default function UserList() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <Button
-                            variant={isActive ? "danger" : "success"}
+                            variant={isActive ? "destructive" : "default"}
                             size="sm"
                             onClick={() => toggleUserStatus(user.id)}
                             disabled={loading}
