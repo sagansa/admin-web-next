@@ -1,7 +1,13 @@
 {
+  "/attendance/page": "app/attendance/page.js",
   "/auth/login/page": "app/auth/login/page.js",
   "/dashboard/page": "app/dashboard/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/page": "app/page.js",
-  "/setup-tenant/page": "app/setup-tenant/page.js"
+  "/point-of-sale/page": "app/point-of-sale/page.js",
+  "/setup-tenant/page": "app/setup-tenant/page.js",
+  "/shift-management/page": "app/shift-management/page.js",
+  "/stores/[id]/payment-methods/page": "app/stores/[id]/payment-methods/page.js",
+  "/stores/page": "app/stores/page.js",
+  "/team-members/page": "app/team-members/page.js"
 }
