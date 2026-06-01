@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
 
+const DEFAULT_API_BASE_URL = process.env.NODE_ENV === 'production'
+  ? 'https://api-ops.sagansa.id'
+  : 'http://127.0.0.1:8000';
+
 const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
@@ -8,7 +12,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   async rewrites() {
-    const apiBaseUrl = (process.env.API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/api\/?$/, '');
+    const apiBaseUrl = (process.env.API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/api\/?$/, '');
     const storageBaseUrl = (process.env.STORAGE_BASE_URL || apiBaseUrl).replace(/\/storage\/?$/, '');
 
     return [
