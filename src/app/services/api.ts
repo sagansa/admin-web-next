@@ -1119,7 +1119,6 @@ export interface ProductPrice {
   id: string;
   storeId: string;
   productId: string;
-  variantId?: string | null;
   customerTypeId: string;
   price: number;
   isActive: boolean;
@@ -1130,7 +1129,6 @@ export interface ProductPrice {
 export interface ProductPriceInput {
   store_id: string;
   product_id: string;
-  variant_id?: string | null;
   customer_type_id: string;
   price: number;
   is_active?: boolean;
@@ -1626,7 +1624,6 @@ interface ApiProductPricePayload {
   id: string;
   store_id: string;
   product_id: string;
-  variant_id?: string | null;
   customer_type_id: string;
   price: number | string;
   is_active?: boolean;
@@ -1930,7 +1927,6 @@ function normaliseProductPrice(price: ApiProductPricePayload): ProductPrice {
     id: String(price.id ?? ''),
     storeId: String(price.store_id ?? ''),
     productId: String(price.product_id ?? ''),
-    variantId: price.variant_id ?? null,
     customerTypeId: String(price.customer_type_id ?? ''),
     price: Number.isFinite(parsedPrice) ? parsedPrice : 0,
     isActive: typeof price.is_active === 'boolean' ? price.is_active : true,

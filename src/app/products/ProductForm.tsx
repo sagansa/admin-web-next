@@ -312,7 +312,7 @@ const ProductForm = ({
           nextPrices[storeId] = {};
 
           prices.forEach((priceRow) => {
-            nextPrices[storeId][buildChannelPriceKey(priceRow.variantId ?? null, priceRow.customerTypeId)] = String(priceRow.price);
+            nextPrices[storeId][buildChannelPriceKey(priceRow.customerTypeId)] = String(priceRow.price);
           });
         });
 
@@ -498,11 +498,11 @@ const ProductForm = ({
     });
   };
 
-  const buildChannelPriceKey = (variantId: string | null, customerTypeId: string) => `${variantId ?? 'base'}:${customerTypeId}`;
+  const buildChannelPriceKey = (customerTypeId: string) => customerTypeId;
 
-  const handleChannelPriceChange = (storeId: string, variantId: string | null, customerTypeId: string, value: string) => {
+  const handleChannelPriceChange = (storeId: string, customerTypeId: string, value: string) => {
     const cleaned = value.replace(/[^0-9]/g, '');
-    const key = buildChannelPriceKey(variantId, customerTypeId);
+    const key = buildChannelPriceKey(customerTypeId);
 
     setChannelPrices((prev) => ({
       ...prev,
@@ -511,26 +511,6 @@ const ProductForm = ({
         [key]: cleaned,
       },
     }));
-  };
-
-  const getChannelPriceTargets = () => {
-    const targets = [
-      {
-        variantId: null as string | null,
-        name: 'Harga dasar',
-        basePrice: price !== '' ? Number(price) : product?.price ?? 0,
-      },
-    ];
-
-    (product?.variantCombinations ?? []).forEach((combination) => {
-      targets.push({
-        variantId: combination.id,
-        name: combination.name,
-        basePrice: combination.price,
-      });
-    });
-
-    return targets;
   };
 
   const saveChannelPrices = async () => {
@@ -550,21 +530,18 @@ const ProductForm = ({
         return Promise.resolve([]);
       }
 
-      getChannelPriceTargets().forEach((target) => {
-        types.forEach((type) => {
-          const value = channelPrices[storeId]?.[buildChannelPriceKey(target.variantId, type.id)] ?? '';
+      types.forEach((type) => {
+        const value = channelPrices[storeId]?.[buildChannelPriceKey(type.id)] ?? '';
 
-          if (value !== '') {
-            prices.push({
-              store_id: storeId,
-              product_id: product.id,
-              variant_id: target.variantId,
-              customer_type_id: type.id,
-              price: Number(value),
-              is_active: true,
-            });
-          }
-        });
+        if (value !== '') {
+          prices.push({
+            store_id: storeId,
+            product_id: product.id,
+            customer_type_id: type.id,
+            price: Number(value),
+            is_active: true,
+          });
+        }
       });
 
       return apiService.saveProductPrices({
@@ -965,92 +942,6 @@ const ProductForm = ({
             )}
 
             <section className="space-y-3 rounded-xl border border-gray-200 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Harga Channel</h3>
-                  <p className="mt-1 text-xs text-gray-600">
-                    Berlaku untuk customer type seperti Gojek, Grab, dan ShopeeFood.
-                  </p>
-                </div>
-                {channelPricesLoading && (
-                  <span className="text-xs text-gray-500">Loading...</span>
-                )}
-              </div>
-
-              {!product ? (
-                <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                  Simpan produk terlebih dahulu untuk mengatur harga channel.
-                </p>
-              ) : Object.entries(storeSelections).filter(([, state]) => state.selected).length === 0 ? (
-                <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                  Pilih store pada Availability untuk mengatur harga channel.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {Object.entries(storeSelections)
-                    .filter(([, state]) => state.selected)
-                    .map(([storeId]) => {
-                      const store = stores.find((item) => item.id === storeId);
-                      const customerTypes = customerTypesByStore[storeId] ?? [];
-                      const targets = getChannelPriceTargets();
-
-                      return (
-                        <div key={storeId} className="overflow-hidden rounded-lg border border-gray-200">
-                          <div className="border-b border-gray-200 bg-gray-50 px-3 py-2">
-                            <p className="text-sm font-medium text-gray-900">{store?.nickname || store?.name || 'Store'}</p>
-                          </div>
-
-                          {customerTypes.length === 0 ? (
-                            <p className="px-3 py-3 text-sm text-gray-600">Belum ada customer type aktif untuk store ini.</p>
-                          ) : (
-                            <div className="overflow-x-auto">
-                              <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-white">
-                                  <tr>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Harga</th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Default</th>
-                                    {customerTypes.map((type) => (
-                                      <th key={type.id} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        {type.name}
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 bg-white">
-                                  {targets.map((target) => (
-                                    <tr key={target.variantId ?? 'base'}>
-                                      <td className="px-3 py-2 text-sm font-medium text-gray-900">{target.name}</td>
-                                      <td className="px-3 py-2 text-sm text-gray-600">Rp {Number(target.basePrice || 0).toLocaleString('id-ID')}</td>
-                                      {customerTypes.map((type) => {
-                                        const key = buildChannelPriceKey(target.variantId, type.id);
-                                        return (
-                                          <td key={type.id} className="px-3 py-2">
-                                            <Input
-                                              type="number"
-                                              min="0"
-                                              step="100"
-                                              value={channelPrices[storeId]?.[key] ?? ''}
-                                              onChange={(e) => handleChannelPriceChange(storeId, target.variantId, type.id, e.target.value)}
-                                              placeholder="Default"
-                                              className="w-32"
-                                            />
-                                          </td>
-                                        );
-                                      })}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
-            </section>
-
-            <section className="space-y-3 rounded-xl border border-gray-200 p-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">Modifications</h3>
                 <Button
@@ -1114,36 +1005,77 @@ const ProductForm = ({
             <section className="space-y-3 rounded-xl border border-gray-200 p-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-900">Availability</h3>
+                {channelPricesLoading && (
+                  <span className="text-xs text-gray-500">Loading channel prices...</span>
+                )}
               </div>
               {storesLoading ? (
                 <p className="text-sm text-gray-600">Loading store list...</p>
               ) : stores.length === 0 ? (
                 <p className="text-sm text-gray-600">No stores available.</p>
               ) : (
-                <div className="grid max-h-56 grid-cols-1 gap-2 overflow-y-auto border border-gray-100 p-3 sm:grid-cols-2">
+                <div className="grid max-h-80 grid-cols-1 gap-3 overflow-y-auto border border-gray-100 p-3 lg:grid-cols-2">
                   {stores.map((store) => {
                     const selection = storeSelections[store.id] ?? { selected: false, price: '' };
+                    const customerTypes = customerTypesByStore[store.id] ?? [];
                     return (
-                      <div key={store.id} className="flex items-center justify-between space-x-2 rounded-md border border-gray-100 p-2 hover:bg-gray-50">
-                        <label className="flex flex-1 items-center space-x-2 text-sm text-gray-700 cursor-pointer">
-                          <Checkbox
-                            checked={selection.selected}
-                            onCheckedChange={() => toggleStore(store.id)}
-                          />
-                          <span className="truncate" title={store.name}>{store.nickname || store.name}</span>
-                        </label>
-                        <div className="flex items-center space-x-1">
-                          <span className="text-xs text-gray-600">Rp</span>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={selection.price}
-                            onChange={(e) => handleStorePriceChange(store.id, e.target.value)}
-                            disabled={!selection.selected}
-                            className="w-28 px-2 py-1"
-                            placeholder="0"
-                          />
+                      <div key={store.id} className="rounded-md border border-gray-100 p-3 hover:bg-gray-50">
+                        <div className="flex items-center justify-between gap-2">
+                          <label className="flex flex-1 items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+                            <Checkbox
+                              checked={selection.selected}
+                              onCheckedChange={() => toggleStore(store.id)}
+                            />
+                            <span className="truncate" title={store.name}>{store.nickname || store.name}</span>
+                          </label>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs text-gray-600">Rp</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={selection.price}
+                              onChange={(e) => handleStorePriceChange(store.id, e.target.value)}
+                              disabled={!selection.selected}
+                              className="w-28 px-2 py-1"
+                              placeholder="0"
+                            />
+                          </div>
                         </div>
+
+                        {selection.selected && product && (
+                          <div className="mt-3 border-t border-gray-100 pt-3">
+                            <div className="mb-2 flex items-center justify-between">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Harga Channel</p>
+                              <p className="text-xs text-gray-500">Kosong = ikut harga store</p>
+                            </div>
+                            {customerTypes.length === 0 ? (
+                              <p className="text-xs text-gray-500">Belum ada customer type aktif untuk store ini.</p>
+                            ) : (
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {customerTypes.map((type) => {
+                                  const key = buildChannelPriceKey(type.id);
+                                  return (
+                                    <label key={type.id} className="space-y-1">
+                                      <span className="text-xs font-medium text-gray-600">{type.name}</span>
+                                      <div className="flex items-center space-x-1">
+                                        <span className="text-xs text-gray-500">Rp</span>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          step="100"
+                                          value={channelPrices[store.id]?.[key] ?? ''}
+                                          onChange={(e) => handleChannelPriceChange(store.id, type.id, e.target.value)}
+                                          className="px-2 py-1"
+                                          placeholder={selection.price || '0'}
+                                        />
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
